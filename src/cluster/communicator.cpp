@@ -71,7 +71,7 @@ void Communicator<Dtype>::CliqueBroadcast() {
 
 template <typename Dtype>
 void Communicator<Dtype>::InterMachineAllReduce() {
-
+  
 }
 
 
