@@ -4,12 +4,18 @@ CXX = /usr/bin/g++
 
 # compiler flags
 CFLAGS = -std=c++11
-LDFLAGS = -lcuda -lglog
+LDFLAGS = -lcuda -lglog -lnccl
 INCFLAGS = -I/home/zjian/Code/novu_caffe_v2/caffe/include/
 
 # communication design test
-COMMOBJ = ./comm_test
-SRC = comm_main.cpp communicator.cpp /home/zjian/Code/novu_caffe_v2/caffe/include/nccl/src/*.cu 
+NCCLOBJ = ./test_nccl
+MPIOBJ = ./test_mpi
+NCCLSRC = test_nccl_comm.cpp communicator.cpp
+MPISRC = test_mpi_comm.cpp communicator.cpp
 
-comm:
-	$(NVCC) $(CFLAGS) $(SRC) $(LDFLAGS) $(INCFLAGS) -o $(COMMOBJ) 
+
+nccl:
+	$(NVCC) $(CFLAGS) $(NCCLSRC) $(LDFLAGS) $(INCFLAGS) -o $(NCCLOBJ) 
+
+mpi:
+	$(NVCC) $(CFLAGS) $(MPISRC) $(LDFLAGS) $(INCFLAGS) -o $(MPIOBJ)

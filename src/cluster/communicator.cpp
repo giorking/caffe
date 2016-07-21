@@ -3,75 +3,140 @@
 #include "nccl/src/nccl.h"
 
 
-template <typename Dtype>
-void CommConfig<Dtype>::SetGpuBuffer(Dtype* buffer, int64_t buf_size) {
-  buf_size_ = buf_size;
-  gpu_buffer_ = buffer;
-}
+// template <typename Dtype>
+// void CommConfig<Dtype>::SetGpuBufferPtr(Dtype** buf_ptr, int64_t buf_size) {
+//   gpu_buf_size_ = buf_size;
+//   gpu_buf_ptr_ = buf_ptr;
+// }
+
+
+// template <typename Dtype>
+// void CommConfig<Dtype>::SetLeftGpuBufferPtr(Dtype** buf_ptr, int64_t buf_size) {
+//   // if (buf == NULL || *buf == NULL) {
+//   //   std::cout << "left_gpu_buffer set to NULL!" << std::endl;
+//   //   exit(1);
+//   // }
+//   // left_gpu_buf_size_ = buf_size;
+//   // left_gpu_buf_ptr_ = buf_ptr;
+// }
+
+
+// template <typename Dtype>
+// void CommConfig<Dtype>::SetRightGpuBufferPtr(Dtype** buf_ptr, int64_t buf_size) {
+//   // if (buf == NULL || *buf == NULL) {
+//   //   std::cout << "right_gpu_buffer set to NULL!" << std::endl;
+//   //   exit(1);
+//   // }
+//   // right_gpu_buf_size_ = buf_size;
+//   // right_gpu_buf_ptr_ = buf_ptr;
+// }
 
 
 template <typename Dtype>
-void CommConfig<Dtype>::SetLeftGpuBuffer(Dtype* buffer, int64_t buf_size) {
-  if (buffer == NULL) {
-    std::cout << "left_gpu_buffer set to NULL!" << std::endl;
-    exit(1);
-  }
-  left_gpu_buffer_ = buffer;
-}
+Communicator<Dtype>::Communicator(CommConfig<Dtype>& config) : 
+  config_(config),
+  nccl_comm_(NULL),
+  stream_comm_(NULL),
+  mpi_intra_group_comm_(NULL),
+  mpi_inter_group_comm_(NULL),
+  gpu_buf_(NULL),
+  mpi_diff_buf_(NULL) {
+  /* initialize communication on GPU*/  
+  CUDA_CHECK(cudaSetDevice(config_.device_id_) );
+  int64_t buf_size = config_.gpu_buf_size_;
+  CUDA_CHECK(cudaMalloc(&gpu_buf_, sizeof(Dtype) * buf_size) );
 
-
-template <typename Dtype>
-void CommConfig<Dtype>::SetRightGpuBuffer(Dtype* buffer, int64_t buf_size) {
-  if (buffer == NULL) {
-    std::cout << "right_gpu_buffer set to NULL!" << std::endl;
-    exit(1);
-  }
-  right_gpu_buffer_ = buffer;
-}
-
-
-template <typename Dtype>
-void Communicator<Dtype>::InitCommConfig() {
-  /* init nccl communicator with global information */
-  NCCL_CHECK(ncclCommInitRank(config_.nccl_comm_, 
+  nccl_comm_ = (ncclComm_t*)malloc(sizeof(ncclComm_t) );
+  NCCL_CHECK(ncclCommInitRank(nccl_comm_, 
     config_.n_dev_clique_local_, config_.clique_id_, 
     config_.clique_rank_) );
-  CUDA_CHECK(cudaStreamCreate(config_.stream_comm_) );
+
+  stream_comm_ = (cudaStream_t*)malloc(sizeof(cudaStream_t) );
+  CUDA_CHECK(cudaStreamCreate(stream_comm_) );
+
+  /* initialize communication for MPI */
+  if (config_.is_group_root_ && !config_.is_clique_root_) {
+    std::cerr << "Error: each clique may have only one thread involving mpi" << std::endl; 
+    exit(1);
+  }
+  if (config_.is_clique_root_) {
+    mpi_diff_buf_ = new Dtype[config_.mpi_diff_buf_size_];
+    // int world_size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &(config_.mpi_rank_) );
+    // MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    config_.group_id = config_.mpi_rank_ / N_PROC_PER_GROUP;
+    mpi_intra_group_comm_ = new MPI_Comm;
+    MPI_Comm_split(MPI_COMM_WORLD, config_.group_id_, 
+      config_.mpi_rank_, mpi_intra_group_comm_);
+    if (config_.is_group_root_) {
+      mpi_model_buf_ = new Dtype[config_.mpi_model_buf_size_];
+      MPI_Comm_split(MPI_COMM_WORLD, GROUP_ROOT_COMM_ID, 
+        config_.mpi_rank_, mpi_inter_group_comm_);
+    }
+    else { 
+      /** MPI_Comm_split needs to be called from all process. 
+       * We create the mpi_inter_group_comm_ for this purpose.
+       * Other communicator creation function did not fit in 
+       * our design, where we need to create a new group distributedly
+       * from all processes. 
+       **/
+      MPI_Comm_split(MPI_COMM_WORLD, NON_GROUP_ROOT_COMM_ID, 
+        config_.mpi_rank_, mpi_inter_group_comm_);
+      MPI_Comm_free(mpi_inter_group_comm_);
+      mpi_inter_group_comm_ = NULL;
+    }
+  }
 }
+
+
+// template <typename Dtype>
+// void Communicator<Dtype>::SetLeftGpuBuffer(Dtype** buffer_addr, int64_t buf_size) {
+//   config_.left_gpu_buf_ptr_ = buffer_addr;
+//   config_.left_gpu_buf_size_ = buf_size;
+// }
+
+
+// template <typename Dtype>
+// void Communicator<Dtype>::SetRightGpuBuffer(Dtype** buffer_addr, int64_t buf_size) {
+//   config_.right_gpu_buf_ptr_ = buffer_addr;
+//   config_.right_gpu_buf_size_ = buf_size;
+// }
 
 
 template <typename Dtype>
 void Communicator<Dtype>::CliqueReduce() {
   ncclDataType_t type = DtypeToNCCLDType<Dtype>::type;
-  if (config_.clique_rank_ == config_.clique_root_rank_)
-    NCCL_CHECK(ncclReduce( (const void*)config_.gpu_buffer_, 
-      (void*)config_.gpu_buffer_, config_.buf_size_, 
+  if (config_.is_clique_root_)
+    NCCL_CHECK(ncclReduce( (const void*)gpu_buf_, 
+      (void*)gpu_buf_, config_.gpu_buf_size_, 
       type, ncclSum, config_.clique_root_rank_, 
-      *(config_.nccl_comm_), *(config_.stream_comm_) ) );
+      *nccl_comm_, *stream_comm_) );
   else
-    NCCL_CHECK(ncclReduce( (const void*)config_.gpu_buffer_, NULL,
-      config_.buf_size_, type, ncclSum, config_.clique_root_rank_, 
-      *(config_.nccl_comm_), *(config_.stream_comm_) ) ); 
+    NCCL_CHECK(ncclReduce( (const void*)gpu_buf_, NULL,
+      config_.gpu_buf_size_, type, ncclSum, config_.clique_root_rank_, 
+      *nccl_comm_, *stream_comm_) ); 
 }
 
 
 template <typename Dtype>
 void Communicator<Dtype>::CliqueBroadcast() {
   ncclDataType_t type = DtypeToNCCLDType<Dtype>::type;
-  if (config_.clique_rank_ == config_.clique_root_rank_)
-    NCCL_CHECK(ncclBcast( (void*)config_.gpu_buffer_, 
-      config_.buf_size_, type, config_.clique_root_rank_, 
-      *(config_.nccl_comm_), *(config_.stream_comm_) ) );
+  if (config_.is_clique_root_)
+    NCCL_CHECK(ncclBcast( (void*)gpu_buf_, 
+      config_.gpu_buf_size_, type, config_.clique_root_rank_, 
+      *nccl_comm_, *stream_comm_) );
   else
-    NCCL_CHECK(ncclBcast( (void*)config_.gpu_buffer_, 
-      config_.buf_size_, type, config_.clique_root_rank_, 
-      *(config_.nccl_comm_), *(config_.stream_comm_) ) ); 
+    NCCL_CHECK(ncclBcast( (void*)gpu_buf_, 
+      config_.gpu_buf_size_, type, config_.clique_root_rank_, 
+      *nccl_comm_, *stream_comm_) ); 
 }
 
 
 template <typename Dtype>
 void Communicator<Dtype>::InterMachineAllReduce() {
-  
+  /* copy GPU memory to CPU memory */
+  if (config_.is_clique_root_)
+
 }
 
 
@@ -88,15 +153,10 @@ void Communicator<Dtype>::SyncGroup() {
 
   /* TODO Jian: inter ndoe communication */
   InterMachineAllReduce();
-  
-  /* TODO Jian: broadcast within clique */
+
+    /* TODO Jian: broadcast within clique */
   CliqueBroadcast();
 }
-
-// template <typename Dtype>
-// int Communicator<Dtype>::SyncIntraMachine() {
-
-// } 
 
 
 template class CommConfig<float>;
