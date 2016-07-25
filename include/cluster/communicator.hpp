@@ -67,7 +67,7 @@ public:
         is_clique_root_ = true;
       else
         is_clique_root_ = false; 
-      MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank_);
+      MPI::Comm_rank(MPI::COMM_WORLD, &mpi_rank_);
       group_id_ = mpi_rank_ / N_PROC_PER_GROUP;
       if (mpi_rank_ % N_PROC_PER_GROUP == 0 && is_clique_root_)
         is_group_root_ = true;
@@ -154,16 +154,6 @@ public:
   virtual void CliqueBroadcast();
   virtual void InterMachineAllReduce();
   virtual void SyncGroup();
-  // virtual int SyncInterMachine();
-  // /* communication primitives */
-  // virtual int SendToPointInterMachine();
-  // virtual int SendToPointIntraMachine();
-  // virtual int AllReduceInterMachine();
-  // virtual int AllReduceIntraMachine();
-  // virtual int BroadCastIntraMachine();
-  // /* Behaviors in computing process */
-  // virtual int OnStart();
-  // virtual int OnGradientReady();
   
   /* access function */
   inline Dtype* GetGpuBuffer() { return gpu_buf_; }
@@ -179,8 +169,8 @@ private:
   cudaStream_t* stream_comm_;
 
   /* communicator for intra/inter-group multi-node communication*/
-  MPI_Comm* mpi_intra_group_comm_;
-  MPI_Comm* mpi_inter_group_comm_;
+  MPI::Comm* mpi_intra_group_comm_;
+  MPI::Comm* mpi_inter_group_comm_;
 
   /* buffer for intra-node gpu communication */
   Dtype* gpu_buf_;
@@ -203,15 +193,15 @@ template<> struct DtypeToNCCLDtype<double> {
 };
 
 
-/* Compile time mapping from typename Dtype to MPI_Datatype*/
+/* Compile time mapping from typename Dtype to MPI::Datatype*/
 template <typename Dtype>
 struct DtypeToMPIDtype {};
 
 template<> struct DtypeToMPIDtype<float> {
-  const static MPI_Datatype type = MPI_FLOAT;
+  const static MPI::Datatype type = MPI::FLOAT;
 };
 template<> struct DtypeToMPIDtype<double> {
-  const static MPI_Datatype type = MPI_DOUBLE;
+  const static MPI::Datatype type = MPI::DOUBLE;
 };
 
 #endif  // COMMUNICATOR_HPP_

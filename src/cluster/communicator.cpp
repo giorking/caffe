@@ -5,35 +5,6 @@
 #include "cluster/debug_utils.hpp"
 
 
-// template <typename Dtype>
-// void CommConfig<Dtype>::SetGpuBufferPtr(Dtype** buf_ptr, int64_t buf_size) {
-//   gpu_buf_size_ = buf_size;
-//   gpu_buf_ptr_ = buf_ptr;
-// }
-
-
-// template <typename Dtype>
-// void CommConfig<Dtype>::SetLeftGpuBufferPtr(Dtype** buf_ptr, int64_t buf_size) {
-//   // if (buf == NULL || *buf == NULL) {
-//   //   std::cout << "left_gpu_buffer set to NULL!" << std::endl;
-//   //   exit(1);
-//   // }
-//   // left_gpu_buf_size_ = buf_size;
-//   // left_gpu_buf_ptr_ = buf_ptr;
-// }
-
-
-// template <typename Dtype>
-// void CommConfig<Dtype>::SetRightGpuBufferPtr(Dtype** buf_ptr, int64_t buf_size) {
-//   // if (buf == NULL || *buf == NULL) {
-//   //   std::cout << "right_gpu_buffer set to NULL!" << std::endl;
-//   //   exit(1);
-//   // }
-//   // right_gpu_buf_size_ = buf_size;
-//   // right_gpu_buf_ptr_ = buf_ptr;
-// }
-
-
 template <typename Dtype>
 Communicator<Dtype>::Communicator(CommConfig<Dtype>& config) : 
   config_(config),
@@ -67,47 +38,33 @@ Communicator<Dtype>::Communicator(CommConfig<Dtype>& config) :
     std::cout << "rank " << config_.mpi_rank_ << " as clique root." << std::endl;
     mpi_send_buf_ = new Dtype[config_.mpi_send_buf_size_];
     mpi_recv_buf_ = new Dtype[config_.mpi_recv_buf_size_];
-    mpi_intra_group_comm_ = new MPI_Comm;
-    MPI_Comm_split(MPI_COMM_WORLD, config_.group_id_, 
+    mpi_intra_group_comm_ = new MPI::Comm;
+    MPI::Comm_split(MPI::COMM_WORLD, config_.group_id_, 
       config_.mpi_rank_, mpi_intra_group_comm_);
     if (config_.is_group_root_) {
       std::cout << "rank " << config_.mpi_rank_ << " as group root." << std::endl;
       mpi_recv_buf_ = new Dtype[config_.mpi_recv_buf_size_];
-      mpi_inter_group_comm_ = new MPI_Comm;
-      MPI_Comm_split(MPI_COMM_WORLD, GROUP_ROOT_COMM_ID, 
+      mpi_inter_group_comm_ = new MPI::Comm;
+      MPI::Comm_split(MPI::COMM_WORLD, GROUP_ROOT_COMM_ID, 
         config_.mpi_rank_, mpi_inter_group_comm_);
     }
     else { 
       /**
-       * MPI_Comm_split needs to be called from all process. 
+       * MPI::Comm_split needs to be called from all process. 
        * We create the mpi_inter_group_comm_ for this purpose.
        * Other communicator creation function did not fit in 
        * our design, where we need to create a new group distributedly
        * from all processes. 
        */
-      mpi_inter_group_comm_ = new MPI_Comm;
-      MPI_Comm_split(MPI_COMM_WORLD, MPI_UNDEFINED, 
+      mpi_inter_group_comm_ = new MPI::Comm;
+      MPI::Comm_split(MPI::COMM_WORLD, MPI::UNDEFINED, 
         config_.mpi_rank_, mpi_inter_group_comm_);
-      // MPI_Comm_free(mpi_inter_group_comm_);
+      // MPI::Comm_free(mpi_inter_group_comm_);
       delete mpi_inter_group_comm_;
       mpi_inter_group_comm_ = NULL;
     }
   }
 }
-
-
-// template <typename Dtype>
-// void Communicator<Dtype>::SetLeftGpuBuffer(Dtype** buffer_addr, int64_t buf_size) {
-//   config_.left_gpu_buf_ptr_ = buffer_addr;
-//   config_.left_gpu_buf_size_ = buf_size;
-// }
-
-
-// template <typename Dtype>
-// void Communicator<Dtype>::SetRightGpuBuffer(Dtype** buffer_addr, int64_t buf_size) {
-//   config_.right_gpu_buf_ptr_ = buffer_addr;
-//   config_.right_gpu_buf_size_ = buf_size;
-// }
 
 
 template <typename Dtype>
@@ -162,25 +119,22 @@ void Communicator<Dtype>::InterMachineAllReduce() {
   }
   CUDA_CHECK(cudaMemcpy(mpi_send_buf_, gpu_buf_, 
     sizeof(Dtype) * config_.gpu_buf_size_, cudaMemcpyDeviceToHost) );
-  MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
+  MPI::Datatype type = DtypeToMPIDtype<Dtype>::type;
 
+// // DEBUG
+//   std::cout << "mpi rank " << config_.mpi_rank_ 
+//     << " first send " << mpi_send_buf_[0] 
+//     << " last send " << mpi_send_buf_[config_.gpu_buf_size_ - 1]
+//     << std::endl;
 
-// DEBUG
-  std::cout << "mpi rank " << config_.mpi_rank_ 
-    << " first send " << mpi_send_buf_[0] 
-    << " last send " << mpi_send_buf_[config_.gpu_buf_size_ - 1]
-    << std::endl;
+  MPI::Allreduce( (void*)mpi_send_buf_, (void*)mpi_recv_buf_,
+    config_.gpu_buf_size_, type, MPI::SUM, *mpi_intra_group_comm_);
 
-
-  MPI_Allreduce( (void*)mpi_send_buf_, (void*)mpi_recv_buf_,
-    config_.gpu_buf_size_, type, MPI_SUM, *mpi_intra_group_comm_);
-
-// DEBUG
-  std::cout << "mpi rank " << config_.mpi_rank_ 
-    << " first recv " << mpi_recv_buf_[0] 
-    << " last recv " << mpi_recv_buf_[config_.gpu_buf_size_ - 1]
-    << std::endl;
-
+// // DEBUG
+//   std::cout << "mpi rank " << config_.mpi_rank_ 
+//     << " first recv " << mpi_recv_buf_[0] 
+//     << " last recv " << mpi_recv_buf_[config_.gpu_buf_size_ - 1]
+//     << std::endl;
 
   /* copy from CPU memory to GPU memory */
   CUDA_CHECK(cudaMemcpy(gpu_buf_, mpi_recv_buf_, 
