@@ -67,7 +67,7 @@ public:
         is_clique_root_ = true;
       else
         is_clique_root_ = false; 
-      MPI::Comm_rank(MPI::COMM_WORLD, &mpi_rank_);
+      MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank_);
       group_id_ = mpi_rank_ / N_PROC_PER_GROUP;
       if (mpi_rank_ % N_PROC_PER_GROUP == 0 && is_clique_root_)
         is_group_root_ = true;
@@ -169,8 +169,8 @@ private:
   cudaStream_t* stream_comm_;
 
   /* communicator for intra/inter-group multi-node communication*/
-  MPI::Comm* mpi_intra_group_comm_;
-  MPI::Comm* mpi_inter_group_comm_;
+  MPI_Comm* mpi_intra_group_comm_;
+  MPI_Comm* mpi_inter_group_comm_;
 
   /* buffer for intra-node gpu communication */
   Dtype* gpu_buf_;
@@ -193,15 +193,15 @@ template<> struct DtypeToNCCLDtype<double> {
 };
 
 
-/* Compile time mapping from typename Dtype to MPI::Datatype*/
+/* Compile time mapping from typename Dtype to MPI_Datatype*/
 template <typename Dtype>
 struct DtypeToMPIDtype {};
 
 template<> struct DtypeToMPIDtype<float> {
-  const static MPI::Datatype type = MPI::FLOAT;
+  const static MPI_Datatype type = MPI_FLOAT;
 };
 template<> struct DtypeToMPIDtype<double> {
-  const static MPI::Datatype type = MPI::DOUBLE;
+  const static MPI_Datatype type = MPI_DOUBLE;
 };
 
 #endif  // COMMUNICATOR_HPP_

@@ -14,12 +14,16 @@ INCFLAGS = -I/home/zjian/Code/novu_caffe_v2/caffe/include/ -I/usr/local/cuda/inc
 # NCCLSRC = test_nccl_comm.cpp communicator.cpp
 
 MPIEXE = test_mpi
-MPISRC = test_mpi_comm.cpp communicator.cpp
+MPISRC = test_mpi_comm.cpp communicator.cpp debug_utils.cpp
 MPIObJ = $(MPISRC:%.cpp=%.o)
+
+ASYNCMEMEXE = test_async_mem
+ASYNCMEMSRC = test_async_mem.cpp async_mem.cpp
+ASYNCMEMOBJ = $(ASYNCMEMSRC:%.cpp=%.o)
 
 %.o: %.cpp
 	@echo Compiling $<
-	$(NVCC) $(INCFLAGS) $(LDFLAGS) -c $< -o $@
+	$(NVCC) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -c $< -o $@
 
 
 # nccl:
@@ -30,3 +34,8 @@ mpi: $(MPIOBJ)
 	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
 	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
 	mpirun --hostfile hosts.txt -np 2 ./$(MPIEXE)
+
+
+asyn_mem: $(ASYNCMEMOBJ)
+	$(NVCC) $(CFLAGS) $(ASYNCMEMSRC) $(LDFLAGS) $(INCFLAGS) -o $(ASYNCMEMEXE)
+	./$(ASYNCMEMEXE)

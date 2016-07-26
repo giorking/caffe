@@ -38,28 +38,28 @@ Communicator<Dtype>::Communicator(CommConfig<Dtype>& config) :
     std::cout << "rank " << config_.mpi_rank_ << " as clique root." << std::endl;
     mpi_send_buf_ = new Dtype[config_.mpi_send_buf_size_];
     mpi_recv_buf_ = new Dtype[config_.mpi_recv_buf_size_];
-    mpi_intra_group_comm_ = new MPI::Comm;
-    MPI::Comm_split(MPI::COMM_WORLD, config_.group_id_, 
+    mpi_intra_group_comm_ = new MPI_Comm;
+    MPI_Comm_split(MPI_COMM_WORLD, config_.group_id_, 
       config_.mpi_rank_, mpi_intra_group_comm_);
     if (config_.is_group_root_) {
       std::cout << "rank " << config_.mpi_rank_ << " as group root." << std::endl;
       mpi_recv_buf_ = new Dtype[config_.mpi_recv_buf_size_];
-      mpi_inter_group_comm_ = new MPI::Comm;
-      MPI::Comm_split(MPI::COMM_WORLD, GROUP_ROOT_COMM_ID, 
+      mpi_inter_group_comm_ = new MPI_Comm;
+      MPI_Comm_split(MPI_COMM_WORLD, GROUP_ROOT_COMM_ID, 
         config_.mpi_rank_, mpi_inter_group_comm_);
     }
     else { 
       /**
-       * MPI::Comm_split needs to be called from all process. 
+       * MPI_Comm_split needs to be called from all process. 
        * We create the mpi_inter_group_comm_ for this purpose.
        * Other communicator creation function did not fit in 
        * our design, where we need to create a new group distributedly
        * from all processes. 
        */
-      mpi_inter_group_comm_ = new MPI::Comm;
-      MPI::Comm_split(MPI::COMM_WORLD, MPI::UNDEFINED, 
+      mpi_inter_group_comm_ = new MPI_Comm;
+      MPI_Comm_split(MPI_COMM_WORLD, MPI_UNDEFINED, 
         config_.mpi_rank_, mpi_inter_group_comm_);
-      // MPI::Comm_free(mpi_inter_group_comm_);
+      // MPI_Comm_free(mpi_inter_group_comm_);
       delete mpi_inter_group_comm_;
       mpi_inter_group_comm_ = NULL;
     }
@@ -119,7 +119,7 @@ void Communicator<Dtype>::InterMachineAllReduce() {
   }
   CUDA_CHECK(cudaMemcpy(mpi_send_buf_, gpu_buf_, 
     sizeof(Dtype) * config_.gpu_buf_size_, cudaMemcpyDeviceToHost) );
-  MPI::Datatype type = DtypeToMPIDtype<Dtype>::type;
+  MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
 
 // // DEBUG
 //   std::cout << "mpi rank " << config_.mpi_rank_ 
@@ -127,8 +127,8 @@ void Communicator<Dtype>::InterMachineAllReduce() {
 //     << " last send " << mpi_send_buf_[config_.gpu_buf_size_ - 1]
 //     << std::endl;
 
-  MPI::Allreduce( (void*)mpi_send_buf_, (void*)mpi_recv_buf_,
-    config_.gpu_buf_size_, type, MPI::SUM, *mpi_intra_group_comm_);
+  MPI_Allreduce( (void*)mpi_send_buf_, (void*)mpi_recv_buf_,
+    config_.gpu_buf_size_, type, MPI_SUM, *mpi_intra_group_comm_);
 
 // // DEBUG
 //   std::cout << "mpi rank " << config_.mpi_rank_ 

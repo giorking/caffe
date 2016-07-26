@@ -80,24 +80,24 @@ template<typename Dtype>
 void TestMPIAllReduce(int argc, char** argv) {
 	int rank;
 	int n_proc;
-	MPI::Init(&argc, &argv);
-	MPI::Comm_rank(MPI::COMM_WORLD, &rank);
-	MPI::Comm_size(MPI::COMM_WORLD, &n_proc);
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
 
 	/* single-thread test */
 	vector<Dtype> rand_value(n_proc, 0.0);
-	MPI::Datatype type = DtypeToMPIDtype<Dtype>::type;
+	MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
 	if (rank == 0) {
 		srand(100);
 		for (int i = 0; i < n_proc; i++) {
 			Dtype value = rand() / (Dtype)RAND_MAX;
 			rand_value[i] = value;
 			if (i != 0)
-				MPI::Send(&(rand_value[0] ), n_proc, type, i, 0, MPI::COMM_WORLD);	
+				MPI_Send(&(rand_value[0] ), n_proc, type, i, 0, MPI_COMM_WORLD);	
 		}
 	}
 	else
-		MPI::Recv(&(rand_value[0] ), n_proc, type, 0, 0, MPI::COMM_WORLD, MPI::STATUS_IGNORE);
+		MPI_Recv(&(rand_value[0] ), n_proc, type, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
   vector<int> gpu_ids;
   GetGpuIds(gpu_ids);
@@ -120,7 +120,7 @@ void TestMPIAllReduce(int argc, char** argv) {
 
   std::cout << "MPI all reduce communication test passed" << std::endl;
 
-	MPI::Finalize();
+	MPI_Finalize();
 }
 
 
