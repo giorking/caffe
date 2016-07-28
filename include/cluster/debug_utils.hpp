@@ -6,7 +6,7 @@
 #include <string>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "caffe/util/device_alternate.hpp"
+// #include "caffe/util/device_alternate.hpp"
 
 #ifndef DEBUG
 #define DEBUG

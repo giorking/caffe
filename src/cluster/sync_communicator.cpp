@@ -1,20 +1,18 @@
 #include <iostream>
-#include "mpi.h"
-#include "cluster/communicator.hpp"
+#include <mpi.h>
+#include "cluster/sync_communicator.hpp"
 #include "nccl/src/nccl.h"
 #include "cluster/debug_utils.hpp"
 
 
 template <typename Dtype>
-Communicator<Dtype>::Communicator(CommConfig<Dtype>& config) : 
+SyncCommunicator<Dtype>::SyncCommunicator(SyncCommConfig<Dtype>& config) : 
   config_(config),
   nccl_comm_(NULL),
   stream_comm_(NULL),
-  mpi_intra_group_comm_(NULL),
-  mpi_inter_group_comm_(NULL),
+  mpi_sync_comm_(NULL),
   gpu_buf_(NULL),
-  mpi_send_buf_(NULL),
-  mpi_recv_buf_(NULL) {
+  mpi_sync_buf_(NULL) {
   /* initialize communication on GPU*/  
   CUDA_CHECK(cudaSetDevice(config_.device_id_) );
   int64_t buf_size = config_.gpu_buf_size_;
@@ -36,39 +34,38 @@ Communicator<Dtype>::Communicator(CommConfig<Dtype>& config) :
 
   if (config_.is_clique_root_) {
     std::cout << "rank " << config_.mpi_rank_ << " as clique root." << std::endl;
-    mpi_send_buf_ = new Dtype[config_.mpi_send_buf_size_];
-    mpi_recv_buf_ = new Dtype[config_.mpi_recv_buf_size_];
-    mpi_intra_group_comm_ = new MPI_Comm;
+    mpi_sync_buf_ = new Dtype[config_.mpi_sync_buf_size_];
+    mpi_sync_comm_ = new MPI_Comm;
     MPI_Comm_split(MPI_COMM_WORLD, config_.group_id_, 
-      config_.mpi_rank_, mpi_intra_group_comm_);
-    if (config_.is_group_root_) {
-      std::cout << "rank " << config_.mpi_rank_ << " as group root." << std::endl;
-      mpi_recv_buf_ = new Dtype[config_.mpi_recv_buf_size_];
-      mpi_inter_group_comm_ = new MPI_Comm;
-      MPI_Comm_split(MPI_COMM_WORLD, GROUP_ROOT_COMM_ID, 
-        config_.mpi_rank_, mpi_inter_group_comm_);
-    }
-    else { 
-      /**
-       * MPI_Comm_split needs to be called from all process. 
-       * We create the mpi_inter_group_comm_ for this purpose.
-       * Other communicator creation function did not fit in 
-       * our design, where we need to create a new group distributedly
-       * from all processes. 
-       */
-      mpi_inter_group_comm_ = new MPI_Comm;
-      MPI_Comm_split(MPI_COMM_WORLD, MPI_UNDEFINED, 
-        config_.mpi_rank_, mpi_inter_group_comm_);
-      // MPI_Comm_free(mpi_inter_group_comm_);
-      delete mpi_inter_group_comm_;
-      mpi_inter_group_comm_ = NULL;
-    }
+      config_.mpi_rank_, mpi_sync_comm_);
+    // if (config_.is_group_root_) {
+    //   std::cout << "rank " << config_.mpi_rank_ << " as group root." << std::endl;
+    //   mpi_recv_buf_ = new Dtype[config_.mpi_recv_buf_size_];
+    //   mpi_inter_group_comm_ = new MPI_Comm;
+    //   MPI_Comm_split(MPI_COMM_WORLD, GROUP_ROOT_COMM_ID, 
+    //     config_.mpi_rank_, mpi_inter_group_comm_);
+    // }
+    // else { 
+    //   *
+    //    * MPI_Comm_split needs to be called from all process. 
+    //    * We create the mpi_inter_group_comm_ for this purpose.
+    //    * Other communicator creation function did not fit in 
+    //    * our design, where we need to create a new group distributedly
+    //    * from all processes. 
+       
+    //   mpi_inter_group_comm_ = new MPI_Comm;
+    //   MPI_Comm_split(MPI_COMM_WORLD, MPI_UNDEFINED, 
+    //     config_.mpi_rank_, mpi_inter_group_comm_);
+    //   // MPI_Comm_free(mpi_inter_group_comm_);
+    //   delete mpi_inter_group_comm_;
+    //   mpi_inter_group_comm_ = NULL;
+    // }
   }
 }
 
 
 template <typename Dtype>
-void Communicator<Dtype>::CliqueReduce() {
+void SyncCommunicator<Dtype>::CliqueReduce() {
   ncclDataType_t type = DtypeToNCCLDtype<Dtype>::type;
 
 // // DEBUG
@@ -95,7 +92,7 @@ void Communicator<Dtype>::CliqueReduce() {
 
 
 template <typename Dtype>
-void Communicator<Dtype>::CliqueBroadcast() {
+void SyncCommunicator<Dtype>::CliqueBroadcast() {
   ncclDataType_t type = DtypeToNCCLDtype<Dtype>::type;
   if (config_.is_clique_root_)
     NCCL_CHECK(ncclBcast( (void*)gpu_buf_, 
@@ -109,15 +106,15 @@ void Communicator<Dtype>::CliqueBroadcast() {
 
 
 template <typename Dtype>
-void Communicator<Dtype>::InterMachineAllReduce() {
+void SyncCommunicator<Dtype>::InterMachineAllReduce() {
   /* Only clique root will call this function */
   /* TODO Jian: modify to adapt to the IB setting*/
   /* copy GPU memory to CPU memory */
-  if (config_.gpu_buf_size_ > config_.mpi_send_buf_size_) {
+  if (config_.gpu_buf_size_ > config_.mpi_sync_buf_size_) {
     std::cout << "Can not do inter machine allReduce." 
       << " mpi buffer is smaller than gpu buffer." << std::endl;
   }
-  CUDA_CHECK(cudaMemcpy(mpi_send_buf_, gpu_buf_, 
+  CUDA_CHECK(cudaMemcpy(mpi_sync_buf_, gpu_buf_, 
     sizeof(Dtype) * config_.gpu_buf_size_, cudaMemcpyDeviceToHost) );
   MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
 
@@ -126,10 +123,8 @@ void Communicator<Dtype>::InterMachineAllReduce() {
 //     << " first send " << mpi_send_buf_[0] 
 //     << " last send " << mpi_send_buf_[config_.gpu_buf_size_ - 1]
 //     << std::endl;
-
-  MPI_Allreduce( (void*)mpi_send_buf_, (void*)mpi_recv_buf_,
-    config_.gpu_buf_size_, type, MPI_SUM, *mpi_intra_group_comm_);
-
+    MPI_Allreduce(MPI_IN_PLACE, (void*)mpi_sync_buf_,
+      config_.gpu_buf_size_, type, MPI_SUM, *mpi_sync_comm_);
 // // DEBUG
 //   std::cout << "mpi rank " << config_.mpi_rank_ 
 //     << " first recv " << mpi_recv_buf_[0] 
@@ -137,13 +132,13 @@ void Communicator<Dtype>::InterMachineAllReduce() {
 //     << std::endl;
 
   /* copy from CPU memory to GPU memory */
-  CUDA_CHECK(cudaMemcpy(gpu_buf_, mpi_recv_buf_, 
+  CUDA_CHECK(cudaMemcpy(gpu_buf_, mpi_sync_buf_, 
     sizeof(Dtype) * config_.gpu_buf_size_, cudaMemcpyHostToDevice) );
 }
 
 
 template <typename Dtype>
-void Communicator<Dtype>::SyncGroup() {
+void SyncCommunicator<Dtype>::SyncGroup() {
   /**
    * recvbuf may be NULL for non-clique-lead GPU
    * We first use reduce to gether within clique
@@ -163,7 +158,7 @@ void Communicator<Dtype>::SyncGroup() {
 }
 
 
-template class CommConfig<float>;
-template class CommConfig<double>;
-template class Communicator<float>;
-template class Communicator<double>; 
+template class SyncCommConfig<float>;
+template class SyncCommConfig<double>;
+template class SyncCommunicator<float>;
+template class SyncCommunicator<double>; 

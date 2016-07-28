@@ -74,8 +74,8 @@ void TestAsyncMemTwoTreads() {
 	int odd = 1;
 	int even = 0;
 	for (int i = 0; i < res_vec.size(); i++) {
-		std::cout << "job " << i << " " << debug_op[i] 
-			<< " value " << res_vec[i] << std::endl;
+		// std::cout << "job " << i << " " << debug_op[i] 
+		// 	<< " value " << res_vec[i] << std::endl;
 		if (debug_op[i] ) {
 			assert(res_vec[i] == odd);
 			odd += 2;

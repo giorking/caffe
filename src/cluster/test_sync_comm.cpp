@@ -5,14 +5,15 @@
 #include <cuda_runtime.h>
 #include <cassert>
 #include "mpi.h"
-#include "cluster/communicator.hpp"
+#include "glog/logging.h"
+#include "cluster/sync_communicator.hpp"
 #include "cluster/debug_utils.hpp"
 #include "caffe/util/device_alternate.hpp"
 
 using namespace std;
 
 template<typename Dtype>
-void GetConfigForClique(vector<CommConfig<Dtype> >& configs,
+void GetConfigForClique(vector<SyncCommConfig<Dtype> >& configs,
 	vector<int>& gpu_ids, int n_config, bool set_group_root, 
 	int buf_size, int mpi_rank) {
 	/* Generate configs for a clique of size n_config */
@@ -23,19 +24,19 @@ void GetConfigForClique(vector<CommConfig<Dtype> >& configs,
 
   for (int i = 0; i < n_config; i++) {
   	if (set_group_root && i == 0)
-	    configs.push_back(CommConfig<Dtype> (gpu_ids[i], 0, n_config, i, 0, clique_id, 
-	    	true, buf_size, mpi_rank, buf_size, buf_size) );
+	    configs.push_back(SyncCommConfig<Dtype> (gpu_ids[i], 0, n_config, i, 0, clique_id, 
+	    	true, buf_size, buf_size) );
 	  else
-	  	configs.push_back(CommConfig<Dtype> (gpu_ids[i], 0, n_config, i, 0, clique_id, 
-	    	false, buf_size, mpi_rank, buf_size, buf_size) ); 
+	  	configs.push_back(SyncCommConfig<Dtype> (gpu_ids[i], 0, n_config, i, 0, clique_id, 
+	    	false, buf_size, buf_size) ); 
   }	
 }
 
 
 template<typename Dtype>
-void MPIAllReduceThread(CommConfig<Dtype> config, Dtype buf_val, 
+void MPIAllReduceThread(SyncCommConfig<Dtype> config, Dtype buf_val, 
 	vector<Dtype>& rand_val, int machine_id, int n_thread) {
-  Communicator<Dtype> comm(config); 
+  SyncCommunicator<Dtype> comm(config); 
 	int64_t buf_size = config.GetGpuBufferSize();
   Dtype* host_buffer = new Dtype[buf_size];
   /*copy into GPU memory*/
@@ -102,7 +103,7 @@ void TestMPIAllReduce(int argc, char** argv) {
   vector<int> gpu_ids;
   GetGpuIds(gpu_ids);
 
-	vector<CommConfig<Dtype> > configs;
+	vector<SyncCommConfig<Dtype> > configs;
 	if (rank == 0)
 		GetConfigForClique(configs, gpu_ids, gpu_ids.size(), true, 10000, rank);
 	else
@@ -125,8 +126,8 @@ void TestMPIAllReduce(int argc, char** argv) {
 
 
 int main(int argc, char** argv) {
-	// TestMPIAllReduce<float>(argc, argv);
-	TestMPIAllReduce<double>(argc, argv);	 
+	TestMPIAllReduce<float>(argc, argv);
+	// TestMPIAllReduce<double>(argc, argv);	 
 
 	return 0;
 }
