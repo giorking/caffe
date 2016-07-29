@@ -39,6 +39,15 @@
 #define CLIQUE_ROOT_RANK 0
 #endif
 
+#define CUDA_CHECK(condition) \
+  /* Code block avoids redefinition of cudaError_t error */ \
+  do { \
+    cudaError_t error = condition; \
+    CHECK_EQ(error, cudaSuccess) << " " << cudaGetErrorString(error); \
+  } while (0)
+
+
+/* distinguish message within sync group or asynchronized inter-groups */
 enum MsgType { ASYNC_MSG = 0, SYNC_MSG = 1};
 
 /* Compile time mapping from typename Dtype to ncclDataType_t */

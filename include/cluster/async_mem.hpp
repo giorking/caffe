@@ -6,7 +6,7 @@
 #include <list>
 #include <cstring>
 #include "cluster/debug_utils.hpp"
-#include "caffe/util/device_alternate.hpp"
+// #include "caffe/util/device_alternate.hpp"
 
 
 // class Semaphore {

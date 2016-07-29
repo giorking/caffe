@@ -4,11 +4,12 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cassert>
+#include <cmath>
 #include "mpi.h"
 #include "glog/logging.h"
-#include "cluster/sync_communicator.hpp"
 #include "cluster/debug_utils.hpp"
-#include "caffe/util/device_alternate.hpp"
+#include "cluster/comm_utils.hpp"
+#include "cluster/sync_communicator.hpp"
 
 using namespace std;
 
@@ -68,7 +69,7 @@ void MPIAllReduceThread(SyncCommConfig<Dtype> config, Dtype buf_val,
   // std::cout << "correct value " << correct_val << std::endl;
 
  	for (int i = 0; i < buf_size; i++)
- 		assert(abs(host_buffer[i] - correct_val) <= 1e-8 * correct_val);
+ 		assert(std::abs(host_buffer[i] - correct_val) <= 1e-8 * correct_val);
 
   if (host_buffer != NULL)
 	  delete host_buffer;
