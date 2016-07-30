@@ -26,42 +26,59 @@ SyncCommunicator<Dtype>::SyncCommunicator(SyncCommConfig<Dtype>& config) :
   stream_comm_ = (cudaStream_t*)malloc(sizeof(cudaStream_t) );
   CUDA_CHECK(cudaStreamCreate(stream_comm_) );
 
-  /* initialize communication for MPI */
-  if (config_.is_group_root_ && !config_.is_clique_root_) {
-    std::cerr << "Error: each clique may have only one thread involving mpi" << std::endl; 
-    exit(1);
-  }
+  // /* initialize communication for MPI */
+  // if (config_.is_group_root_ && !config_.is_clique_root_) {
+  //   std::cerr << "Error: each clique may have only one thread involving mpi" << std::endl; 
+  //   exit(1);
+  // }
 
   if (config_.is_clique_root_) {
-    std::cout << "rank " << config_.mpi_rank_ << " as clique root." << std::endl;
+    // std::cout << "rank " << config_.mpi_rank_ << " as clique root." << std::endl;
     mpi_sync_buf_ = new Dtype[config_.mpi_sync_buf_size_];
     mpi_sync_comm_ = new MPI_Comm;
     MPI_Comm_split(MPI_COMM_WORLD, config_.group_id_, 
       config_.mpi_rank_, mpi_sync_comm_);
-    // if (config_.is_group_root_) {
-    //   std::cout << "rank " << config_.mpi_rank_ << " as group root." << std::endl;
-    //   mpi_recv_buf_ = new Dtype[config_.mpi_recv_buf_size_];
-    //   mpi_inter_group_comm_ = new MPI_Comm;
-    //   MPI_Comm_split(MPI_COMM_WORLD, GROUP_ROOT_COMM_ID, 
-    //     config_.mpi_rank_, mpi_inter_group_comm_);
-    // }
-    // else { 
-    //   *
-    //    * MPI_Comm_split needs to be called from all process. 
-    //    * We create the mpi_inter_group_comm_ for this purpose.
-    //    * Other communicator creation function did not fit in 
-    //    * our design, where we need to create a new group distributedly
-    //    * from all processes. 
-       
-    //   mpi_inter_group_comm_ = new MPI_Comm;
-    //   MPI_Comm_split(MPI_COMM_WORLD, MPI_UNDEFINED, 
-    //     config_.mpi_rank_, mpi_inter_group_comm_);
-    //   // MPI_Comm_free(mpi_inter_group_comm_);
-    //   delete mpi_inter_group_comm_;
-    //   mpi_inter_group_comm_ = NULL;
-    // }
   }
 }
+
+template <typename Dtype>
+SyncCommunicator<Dtype>::SyncCommunicator(SyncCommConfig<Dtype>& config, int64_t buf_size) : 
+  config_(config),
+  nccl_comm_(NULL),
+  stream_comm_(NULL),
+  mpi_sync_comm_(NULL),
+  gpu_buf_(NULL),
+  mpi_sync_buf_(NULL) {
+  // set buffer size
+  config_.mpi_sync_buf_size_ = buf_size;
+  /* initialize communication on GPU*/  
+  CUDA_CHECK(cudaSetDevice(config_.device_id_) );
+  config_.gpu_buf_size_ = buf_size;
+  CUDA_CHECK(cudaMalloc(&gpu_buf_, sizeof(Dtype) * buf_size) );
+
+  nccl_comm_ = (ncclComm_t*)malloc(sizeof(ncclComm_t) );
+  NCCL_CHECK(ncclCommInitRank(nccl_comm_, 
+    config_.n_dev_clique_local_, config_.clique_id_, 
+    config_.clique_rank_) );
+
+  stream_comm_ = (cudaStream_t*)malloc(sizeof(cudaStream_t) );
+  CUDA_CHECK(cudaStreamCreate(stream_comm_) );
+
+  // /* initialize communication for MPI */
+  // if (config_.is_group_root_ && !config_.is_clique_root_) {
+  //   std::cerr << "Error: each clique may have only one thread involving mpi" << std::endl; 
+  //   exit(1);
+  // }
+
+  if (config_.is_clique_root_) {
+    // std::cout << "rank " << config_.mpi_rank_ << " as clique root." << std::endl;
+    mpi_sync_buf_ = new Dtype[config_.mpi_sync_buf_size_];
+    mpi_sync_comm_ = new MPI_Comm;
+    MPI_Comm_split(MPI_COMM_WORLD, config_.group_id_, 
+      config_.mpi_rank_, mpi_sync_comm_);
+  }
+}
+
 
 
 template <typename Dtype>

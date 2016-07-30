@@ -43,6 +43,15 @@ ALLEXE += $(ASYNCCOMMEXE)
 ALLOBJ += $(ASYNCCOMMOBJ)
 
 
+# async worker test
+ASYNCWORKEREXE = test_async_worker
+ASYNCWORKERSRC = test_async_worker.cpp async_mem.cpp sync_communicator.cpp \
+	async_communicator.cpp worker.cpp
+ASYNCWORKEROBJ = $(ASYNCWORKERSRC:%.cpp=%.o)
+ALLEXE += $(ASYNCWORKEREXE)
+ALLOBJ += $(ASYNCWORKEROBJ)
+
+
 %.o: %.cpp
 	@echo Compiling $<
 	$(NVCC) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -c $< -o $@
@@ -72,6 +81,14 @@ async_comm: $(ASYNCCOMMOBJ)
 	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
 	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
 	mpirun --hostfile hosts.txt -np 8 ./$(ASYNCCOMMEXE)
+
+
+async_worker: $(ASYNCWORKEROBJ)
+	@echo Linking
+	$(MPICXX) $(CFLAGS) $(PTHREADFLAGS) $(ASYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(ASYNCWORKEREXE)
+	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
+	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
+	mpirun --hostfile hosts.txt -np 8 ./$(ASYNCWORKEREXE)
 
 
 clean:

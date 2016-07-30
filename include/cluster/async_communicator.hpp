@@ -8,11 +8,21 @@
 #include "cluster/async_mem.hpp"
 
 
+// forward declaration for communicator config
+template <typename Dtype>
+class AsyncCommunicator;
+
+template <typename Dtype>
+class Worker;
+
+template <typename Dtype>
+class AsyncWorker;
+
+
 template <typename Dtype>
 class AsyncCommConfig {
 public:
-	AsyncCommConfig(bool is_comm_thread) :
-		is_comm_thread_(is_comm_thread) {
+	AsyncCommConfig() {
 		int n_proc;
 		MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank_);
 		MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
@@ -31,11 +41,11 @@ private:
 	int mpi_async_rank_;
 	int n_group_;
 	int group_id_;
-	bool is_comm_thread_;
 
 friend class AsyncCommunicator<Dtype>;
-
+friend class AsyncWorker<Dtype>;
 };
+
 
 /**
  * async communicator for asynchronized model update in a round-robin fashion.
@@ -89,11 +99,15 @@ private:
 	MPI_Comm* mpi_async_comm_;
 	/**
 	 * lock for terminating signal from outside thread. We use it
-	 * to guarantee 
+	 * to guarantee the completion of certain operations. currently
+	 * not in use.
 	 */
 	bool stop_;
 	pthread_mutex_t stop_lock_;
 	pthread_barrier_t thread_barrier_;
+
+friend class Worker<Dtype>;
+friend class AsyncWorker<Dtype>;
 };
 
 

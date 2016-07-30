@@ -5,6 +5,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <mpi.h>
+#include <cassert>
 #include "nccl/src/nccl.h"
 #include "cluster/comm_utils.hpp"
 #include "caffe/util/device_alternate.hpp"
@@ -18,12 +19,11 @@ class SyncCommunicator;
 template<typename Dtype>
 class SyncCommConfig {
 public:
-  SyncCommConfig(int device_id, int machine_id,
-    int n_dev_clique_local, int clique_rank, int clique_root_rank, 
-    ncclUniqueId clique_id, bool is_clique_root, int64_t gpu_buf_size, 
-    int64_t mpi_sync_buf_size) :
+  SyncCommConfig(int device_id, int n_dev_clique_local, 
+    int clique_rank, int clique_root_rank, 
+    ncclUniqueId clique_id, bool is_clique_root, 
+    int64_t gpu_buf_size, int64_t mpi_sync_buf_size) :
     device_id_(device_id), 
-    machine_id_(machine_id),
     n_dev_clique_local_(n_dev_clique_local),
     clique_rank_(clique_rank),
     clique_root_rank_(clique_root_rank),
@@ -40,10 +40,32 @@ public:
         is_group_root_ = true;
       else
         is_group_root_ = false;
-    }
+  }
+  SyncCommConfig(int device_id, ncclUniqueId clique_id) :
+    device_id_(device_id), clique_id_(clique_id),
+    gpu_buf_size_(0), mpi_sync_buf_size_(0) {
+      int n_device;
+      int n_proc;
+      CUDA_CHECK(cudaGetDeviceCount(&n_device) );
+      MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank_);
+      MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
+      assert(n_proc % N_PROC_PER_GROUP == 0);
+      group_id_ = mpi_rank_ / N_PROC_PER_GROUP;
+
+      n_dev_clique_local_;
+      clique_rank_ = device_id_ % N_DEVICE_PER_PROC;
+      clique_root_rank_ = 0;
+      if (clique_rank_ == clique_root_rank_)
+        is_clique_root_ = true;
+      else
+        is_clique_root_ = false;   
+      if (mpi_rank_ % N_PROC_PER_GROUP == 0 && is_clique_root_)
+        is_group_root_ = true;
+      else
+        is_group_root_ = false;
+  }
   SyncCommConfig(const SyncCommConfig<Dtype>& config) : 
     device_id_(config.device_id_), 
-    machine_id_(config.machine_id_),
     n_dev_clique_local_(config.n_dev_clique_local_),
     clique_rank_(config.clique_rank_),
     clique_root_rank_(config.clique_root_rank_),
@@ -57,11 +79,10 @@ public:
   /* access function*/
   inline int64_t GetGpuBufferSize() { return gpu_buf_size_; }
   inline int GetDeviceId() { return device_id_; }
-  inline int GetMachineId() { return machine_id_; }
+  // inline int GetMachineId() { return machine_id_; }
 private:
 
   int device_id_;
-  int machine_id_;
   /* group id is initialized when initializing the communicator*/
   int group_id_;
   /**
@@ -96,6 +117,7 @@ template<typename Dtype>
 class SyncCommunicator {
 public:
   SyncCommunicator(SyncCommConfig<Dtype>& config);
+  SyncCommunicator(SyncCommConfig<Dtype>& config, int64_t buf_size);
   ~SyncCommunicator() {
     if (gpu_buf_ != NULL)
       CUDA_CHECK(cudaFree(gpu_buf_) );
