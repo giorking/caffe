@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstring>
 #include <mpi.h>
 #include "cluster/sync_communicator.hpp"
 #include "nccl/src/nccl.h"
@@ -39,11 +40,11 @@ SyncCommunicator<Dtype>::SyncCommunicator(const SyncCommConfig<Dtype>& config,
   if (config_.is_clique_root_) {
     mpi_sync_comm_ = new MPI_Comm;
     mpi_sync_buf_ = new Dtype[mpi_sync_buf_size_];
+    std::memset(mpi_sync_buf_, 0, sizeof(Dtype) * mpi_sync_buf_size_);
     MPI_Comm_split(MPI_COMM_WORLD, config_.group_id_, 
       config_.mpi_rank_, mpi_sync_comm_);
   }
 }
-
 
 
 template <typename Dtype>

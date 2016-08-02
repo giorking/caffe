@@ -125,6 +125,7 @@ public:
   
   /* access function */
   inline Dtype* GetGpuBuffer() { return gpu_buf_; }
+  inline Dtype* GetMpiSyncBuffer() { return mpi_sync_buf_; }
   inline bool IsCliqueRoot() { return config_.is_clique_root_; }
   
 private:  

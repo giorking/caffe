@@ -5,9 +5,10 @@
 
 template <typename Dtype>
 Worker<Dtype>::Worker(const SyncCommConfig<Dtype>& sync_comm_config) : 
-	solver_(20000000, 10), 
+	solver_(20000000, 5), 
 	sync_comm_(sync_comm_config, this->solver_.buf_size_) {
 	// TODO Jian : get buffer size from solver, combining everything of the solver
+	solver_.SetDiffBuf(sync_comm_.gpu_buf_);	
 	pthread_barrier_init(&data_ready_, NULL, 2);
 }
 
@@ -32,23 +33,17 @@ void Worker<Dtype>::LoadDataLoop() {
 	// b_data: wait until data loading is done 
 	// TODO Jian perform data loading 
 	
-	int rank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	DEBUG_PRINT("data loop Rank ");
-	DEBUG_PRINT(rank);
-	DEBUG_PRINT("\n");
+#ifdef DEBUG
+	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in LoadDataLoop function");
+#endif
 
 	for (int i = 0; i < solver_.n_iter_; i++) {
-		
-		DEBUG_PRINT("Rank ");
-		DEBUG_PRINT(rank);
-		DEBUG_PRINT(" dataload before\n");
+
+#ifdef DEBUG
+	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " dataload done");
+#endif
 		
 		pthread_barrier_wait(&data_ready_);
-
-		DEBUG_PRINT("Rank ");
-		DEBUG_PRINT(rank);
-		DEBUG_PRINT(" dataload after\n");
 
 	}
 }
@@ -65,7 +60,20 @@ AsyncWorker<Dtype>::AsyncWorker(const SyncCommConfig<Dtype>& sync_comm_config,
 
 
 template <typename Dtype>
+void AsyncWorker<Dtype>::CommitDiffToAsyncMem(Dtype* diff_buf) {
+	Dtype scale = N_PROC_PER_GROUP * N_DEVICE_PER_PROC;
+	for (int i = 0; i < async_mem_.buf_size_; i++)
+		async_mem_.buf_[i] += diff_buf[i] / scale;
+}
+
+
+template <typename Dtype>
 void AsyncWorker<Dtype>::AsyncComputeLoop() {
+
+#ifdef DEBUG
+	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in AsyncComputeLoop function\n");
+#endif
+
 	// prevent trigger send overlaps with recv thread in wait on the same buf. 
 	this->async_comm_.ThreadBarrierWait();
 
@@ -92,8 +100,9 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 		// 	DEBUG_PRINT("rank 1 compute step 2\n");
 
 		// commit delta to mem_
-		this->solver_.CommitModelDiff(this->async_mem_.buf_, 
-			this->async_mem_.buf_size_);
+		this->CommitDiffToAsyncMem(this->sync_comm_.GetMpiSyncBuffer() );
+		// this->solver_.CommitModelDiff(this->async_mem_.buf_, this->async_mem_.buf_size_);
+
 
 		// if (test_rank == 0)
 		// 	DEBUG_PRINT("rank 0 compute step 3\n");
@@ -122,21 +131,18 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 			assert(this->solver_.model_[0] == this->solver_.model_[i] );
 #endif
 
-		// if (test_rank == 0)
-		// 	DEBUG_PRINT("rank 0 compute step 6\n");
-		// else
-		// 	DEBUG_PRINT("rank 1 compute step 6\n");
-
-
 		// b3 : wait until finish read mem_ out before recv
 		this->async_comm_.ThreadBarrierWait();
 
 		// b_data: wait until data loading is done 
-		
 		pthread_barrier_wait(&(this->data_ready_) );
 
 		// do computation
 		this->solver_.Compute();
+
+		// do intra-group synchronization
+		this->sync_comm_.SyncGroup();
+
 
 		std::cout << "rank " << async_comm_.config_.mpi_rank_ << " round " 
 			<< i << " done " << std::endl;
@@ -148,11 +154,11 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 	int rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
-	assert(test_res[0] = rank / N_PROC_PER_GROUP + 1);
 	std::cout << "rank " << rank << " value " << test_res[0] << std::endl;
+	assert(test_res[0] == 0);
 	for (int i = 1; i < test_res.size(); i++) {
 		std::cout << "rank " << rank << " value " << test_res[i] << std::endl;
-		assert(test_res[i] - (test_res[i - 1] ) == n_proc / N_PROC_PER_GROUP);
+		assert(test_res[i] == n_proc / N_PROC_PER_GROUP * (i - 1) + rank / N_PROC_PER_GROUP + 1);
 	}
 #endif
 
@@ -161,6 +167,11 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 
 template <typename Dtype>
 void AsyncWorker<Dtype>::AsyncCommLoop() {
+
+#ifdef DEBUG
+	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in AsyncCommLoop function\n");
+#endif
+
 	// last group need to initilize the ring based async computation
 	if (async_comm_.config_.mpi_rank_ / N_PROC_PER_GROUP 
 		== async_comm_.config_.n_group_ - 1) {
@@ -196,6 +207,11 @@ void AsyncWorker<Dtype>::AsyncCommLoop() {
 
 template <typename Dtype>
 void AsyncWorker<Dtype>::Run() {
+
+#ifdef DEBUG
+	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in run function\n");
+#endif
+
 	// spawn data loading thread 
 	std::thread data_load_thread(&AsyncWorker<Dtype>::LoadDataLoop, this);
 

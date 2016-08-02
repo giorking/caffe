@@ -25,10 +25,10 @@
 		std::cout << content; \
 } while(0)
 
-#define DEBUG_PRINT_RANK(comm) do { \
+#define DEBUG_PRINT_RANK(comm, info) do { \
 	int debug_mpi_rank; \
 	MPI_Comm_rank(comm, &debug_mpi_rank); \
-	std::cout << "rank " << debug_mpi_rank << std::endl; \
+	std::cout << "rank " << debug_mpi_rank << " " << info << std::endl; \
 } while(0)
 
 
