@@ -8,6 +8,7 @@ CFLAGS = -std=c++11
 LDFLAGS = -L/usr/local/cuda/lib64 -lcudart -lcuda -lglog -lnccl -lmpi 
 INCFLAGS = -I/home/zjian/Code/novu_caffe_v2/caffe/include/ -I/usr/local/cuda/include
 PTHREADFLAGS = -pthread
+ERRFLAG = -fmax-errors=3
 
 # all exe and obj
 ALLEXE =
@@ -46,7 +47,7 @@ ALLOBJ += $(ASYNCCOMMOBJ)
 # async worker test
 ASYNCWORKEREXE = test_async_worker
 ASYNCWORKERSRC = test_async_worker.cpp async_mem.cpp sync_communicator.cpp \
-	async_communicator.cpp worker.cpp
+	async_communicator.cpp worker.cpp debug_utils.cpp
 ASYNCWORKEROBJ = $(ASYNCWORKERSRC:%.cpp=%.o)
 ALLEXE += $(ASYNCWORKEREXE)
 ALLOBJ += $(ASYNCWORKEROBJ)
@@ -88,7 +89,7 @@ async_worker: $(ASYNCWORKEROBJ)
 	$(MPICXX) $(CFLAGS) $(PTHREADFLAGS) $(ASYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(ASYNCWORKEREXE)
 	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
 	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
-	mpirun --hostfile hosts.txt -np 8 ./$(ASYNCWORKEREXE)
+	mpirun --hostfile hosts.txt -np 2 ./$(ASYNCWORKEREXE)
 
 
 clean:

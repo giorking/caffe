@@ -15,35 +15,19 @@
 template<typename Dtype>
 class SyncCommunicator;
 
+template<typename Dtype>
+class Worker;
+
+template<typename Dtype>
+class AsyncWorker;
+
+
 /* base communicator configuration class*/
 template<typename Dtype>
 class SyncCommConfig {
 public:
-  SyncCommConfig(int device_id, int n_dev_clique_local, 
-    int clique_rank, int clique_root_rank, 
-    ncclUniqueId clique_id, bool is_clique_root, 
-    int64_t gpu_buf_size, int64_t mpi_sync_buf_size) :
-    device_id_(device_id), 
-    n_dev_clique_local_(n_dev_clique_local),
-    clique_rank_(clique_rank),
-    clique_root_rank_(clique_root_rank),
-    clique_id_(clique_id),
-    gpu_buf_size_(gpu_buf_size),
-    mpi_sync_buf_size_(mpi_sync_buf_size) {
-      if (clique_rank_ == clique_root_rank_)
-        is_clique_root_ = true;
-      else
-        is_clique_root_ = false; 
-      MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank_);
-      group_id_ = mpi_rank_ / N_PROC_PER_GROUP;
-      if (mpi_rank_ % N_PROC_PER_GROUP == 0 && is_clique_root_)
-        is_group_root_ = true;
-      else
-        is_group_root_ = false;
-  }
   SyncCommConfig(int device_id, ncclUniqueId clique_id) :
-    device_id_(device_id), clique_id_(clique_id),
-    gpu_buf_size_(0), mpi_sync_buf_size_(0) {
+    device_id_(device_id), clique_id_(clique_id) {
       int n_device;
       int n_proc;
       CUDA_CHECK(cudaGetDeviceCount(&n_device) );
@@ -51,10 +35,10 @@ public:
       MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
       assert(n_proc % N_PROC_PER_GROUP == 0);
       group_id_ = mpi_rank_ / N_PROC_PER_GROUP;
-
-      n_dev_clique_local_;
+      // current we assume each process control a clique
+      n_dev_clique_local_= N_DEVICE_PER_PROC;
       clique_rank_ = device_id_ % N_DEVICE_PER_PROC;
-      clique_root_rank_ = 0;
+      clique_root_rank_ = CLIQUE_ROOT_RANK;
       if (clique_rank_ == clique_root_rank_)
         is_clique_root_ = true;
       else
@@ -66,18 +50,17 @@ public:
   }
   SyncCommConfig(const SyncCommConfig<Dtype>& config) : 
     device_id_(config.device_id_), 
+    group_id_(config.group_id_),
     n_dev_clique_local_(config.n_dev_clique_local_),
     clique_rank_(config.clique_rank_),
     clique_root_rank_(config.clique_root_rank_),
     clique_id_(config.clique_id_),
     is_clique_root_(config.is_clique_root_),
     is_group_root_(config.is_group_root_),
-    gpu_buf_size_(config.gpu_buf_size_),
-    mpi_rank_(config.mpi_rank_),
-    mpi_sync_buf_size_(config.mpi_sync_buf_size_) {}
+    mpi_rank_(config.mpi_rank_) {}
 
   /* access function*/
-  inline int64_t GetGpuBufferSize() { return gpu_buf_size_; }
+  // inline int64_t GetGpuBufferSize() { return gpu_buf_size_; }
   inline int GetDeviceId() { return device_id_; }
   // inline int GetMachineId() { return machine_id_; }
 private:
@@ -96,8 +79,8 @@ private:
   int clique_rank_;
   int clique_root_rank_;
   bool is_clique_root_;
-  /* specify the size of the mem buffer on GPU*/
-  int64_t gpu_buf_size_;
+  //  specify the size of the mem buffer on GPU
+  // int64_t gpu_buf_size_;
 
   /**
    * For communication between different nodes. 
@@ -107,7 +90,7 @@ private:
   // int mpi_root_rank_;
   bool is_group_root_;
   
-  int64_t mpi_sync_buf_size_;
+  // int64_t mpi_sync_buf_size_;
 
 friend class SyncCommunicator<Dtype>;
 }; 
@@ -116,8 +99,9 @@ friend class SyncCommunicator<Dtype>;
 template<typename Dtype>
 class SyncCommunicator {
 public:
-  SyncCommunicator(SyncCommConfig<Dtype>& config);
-  SyncCommunicator(SyncCommConfig<Dtype>& config, int64_t buf_size);
+  SyncCommunicator(const SyncCommConfig<Dtype>& config, const int64_t buf_size);
+  SyncCommunicator(const SyncCommunicator<Dtype>& comm) :
+    SyncCommunicator<Dtype> (comm.config_, comm.gpu_buf_size_) {}
   ~SyncCommunicator() {
     if (gpu_buf_ != NULL)
       CUDA_CHECK(cudaFree(gpu_buf_) );
@@ -141,6 +125,7 @@ public:
   
   /* access function */
   inline Dtype* GetGpuBuffer() { return gpu_buf_; }
+  inline bool IsCliqueRoot() { return config_.is_clique_root_; }
   
 private:  
   /* configuration */
@@ -156,10 +141,15 @@ private:
   MPI_Comm* mpi_sync_comm_;
 
   /* buffer for intra-node gpu communication */
+  int64_t gpu_buf_size_;
   Dtype* gpu_buf_;
 
   /* inter-node intra-group communication using mpi */
+  int64_t mpi_sync_buf_size_;
   Dtype* mpi_sync_buf_;
+
+friend class Worker<Dtype>;
+friend class AsyncWorker<Dtype>;
 };
 
 #endif  // COMMUNICATOR_HPP_

@@ -10,29 +10,35 @@
 template <typename Dtype>
 class Solver {
 public:
-	Solver(int64_t buf_size, int n_iter) {
+	Solver() : model_(NULL) {};
+	Solver(int64_t buf_size, int n_iter) : model_(NULL) {
 		n_iter_ = n_iter;
 		buf_size_ = buf_size;
-		Dtype* mem_ = new Dtype[buf_size_];
+		model_ = new Dtype[buf_size_];
+
 	}
+	Solver(const Solver<Dtype>& solver) :
+		Solver(solver.buf_size_, solver.n_iter_) {}
 	~Solver() {
-		if (mem_ != NULL)
-			delete mem_;
+		if (model_ != NULL)
+			delete[] model_;
 	}
 	void Compute() {
-		usleep(50000000);
+		usleep(500000);
 	}
-	void RecvModel(Dtype* buf) {
-		memcpy(mem_, buf, sizeof(Dtype) * buf_size_);
+	void RecvModel(Dtype* buf, int64_t buf_size) {
+		// TODO Jian assert buffer size is the same
+		memcpy(model_, buf, sizeof(Dtype) * buf_size_);
 	}
-	void CommitModelDiff(Dtype* buf) {
-		// commit delta to mem_
+	void CommitModelDiff(Dtype* buf, int64_t buf_size) {
+		// TODO Jian assert buffer size is the same
+		// commit delta to model_
 		for (int i = 0; i < buf_size_; i++)
 			// +1 for test
 			buf[i] += 1;
 	}
 private:
-	Dtype* mem_;
+	Dtype* model_;
 	int64_t buf_size_;
 	int n_iter_;
 
@@ -71,14 +77,9 @@ friend class AsyncWorker<Dtype>;
 template <typename Dtype>
 class Worker {
 public:
-	Worker(SyncCommConfig<Dtype>& sync_comm_config);
-	~Worker() {
-		pthread_barrier_destroy(&data_ready_);
-		if (sync_comm_ != NULL)
-			delete sync_comm_;
-		if (solver_ != NULL)
-			delete solver_;
-	};
+	Worker(const SyncCommConfig<Dtype>& sync_comm_config);
+	Worker(const Worker<Dtype>& worker);
+	~Worker() { pthread_barrier_destroy(&data_ready_); }
 	/** 
 	 * SyncComputeLoop takes care of the local computation,
 	 * single-node multi-GPU communication and and multi-node
@@ -88,7 +89,6 @@ public:
 	 * As we pass this function to new thread, 
 	 * we pass ptr this to simulate conventional use in member functions.
 	 */
-	virtual void ComputeGradient();
 	virtual void SyncComputeLoop();
 	/**
 	 * We load data in background, the loading time is hidden
@@ -97,11 +97,11 @@ public:
 	void LoadDataLoop();
 	virtual void Run() {}
 
-private:
+protected:
 	/* TODO Jian: add a real net solver */
-	Solver<Dtype>* solver_;
+	Solver<Dtype> solver_;
 
-	SyncCommunicator<Dtype>* sync_comm_;
+	SyncCommunicator<Dtype> sync_comm_;
 
 	/* replace this barrier with a barrier from solver*/
 	pthread_barrier_t data_ready_;
@@ -111,16 +111,10 @@ private:
 template <typename Dtype>
 class AsyncWorker : public Worker<Dtype> {
 public:
-	AsyncWorker(SyncCommConfig<Dtype>& sync_comm_config_,
-		AsyncCommConfig<Dtype>& async_comm_config_);
-	~AsyncWorker() {
-		if (async_mem_ != NULL) {
-			delete async_mem_;
-			async_mem_ = NULL;
-		}
-		if (async_comm_ != NULL)
-			delete async_comm_;
-	}
+	AsyncWorker(const SyncCommConfig<Dtype>& sync_comm_config_,
+		const AsyncCommConfig<Dtype>& async_comm_config_);
+	AsyncWorker(const AsyncWorker<Dtype>& worker) :
+		AsyncWorker<Dtype> (worker.sync_comm_.config_, worker.async_comm_.config_) {}
 	virtual void AsyncComputeLoop();
 	/**
 	 * handle async communication in the ring fashion.
@@ -138,10 +132,11 @@ public:
 	 * to computing while the centralized asynchronized training
 	 */
 	virtual void Run();
+
 private:
 	/* async mpi communicator in addition to the synchronized one */
-	AsyncMem<Dtype>* async_mem_;
-	AsyncCommunicator<Dtype>* async_comm_;	
+	AsyncMem<Dtype> async_mem_;
+	AsyncCommunicator<Dtype> async_comm_;	
 
 };
 

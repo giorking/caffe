@@ -81,6 +81,9 @@
 template <typename Dtype>
 class AsyncCommunicator;
 
+template <typename Dtype>
+class AsyncWorker;
+
 
 template <typename Dtype>
 class AsyncMem {
@@ -95,6 +98,8 @@ public:
 		buf_ = new Dtype [buf_size_];
 		memset(buf_, 0, sizeof(Dtype) * buf_size_);
 	}
+	AsyncMem(const AsyncMem<Dtype>& mem) :
+		AsyncMem(mem.n_thread_, mem.buf_size_) {}
 	~AsyncMem() {
 		pthread_mutex_destroy(&access_lock_);
 		pthread_barrier_destroy(&order_ctrl_);
@@ -126,6 +131,7 @@ private:
 	int n_thread_;
 
 friend class AsyncCommunicator<Dtype>;
+friend class AsyncWorker<Dtype>;
 };
 
 

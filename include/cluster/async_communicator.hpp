@@ -30,11 +30,17 @@ public:
 		n_group_ = n_proc / N_PROC_PER_GROUP;
 		group_id_ = mpi_rank_ / N_PROC_PER_GROUP;
 	}
-	AsyncCommConfig(AsyncCommConfig<Dtype>& config) :
+	AsyncCommConfig(const AsyncCommConfig<Dtype>& config) :
 		mpi_rank_(config.mpi_rank_),
 		mpi_async_rank_(config.mpi_async_rank_),
 		n_group_(config.n_group_),
 		group_id_(config.group_id_) {}
+
+	// TODO Jian remove
+	void PrintInfo() {
+		std::cout << "check asyn init rank " << mpi_rank_ << std::endl;
+	}
+
 private:
 	/* MPI global rank */
 	int mpi_rank_;
@@ -70,8 +76,13 @@ friend class AsyncWorker<Dtype>;
 template <typename Dtype>
 class AsyncCommunicator {
 public:
-	AsyncCommunicator(AsyncCommConfig<Dtype>& config);
-	// ~AsyncCommunicator();
+	AsyncCommunicator(const AsyncCommConfig<Dtype>& config);
+	AsyncCommunicator(const AsyncCommunicator<Dtype>& comm) :
+		AsyncCommunicator<Dtype> (comm.config_) {}
+	~AsyncCommunicator() {
+		if (mpi_async_comm_ != NULL)
+			MPI_Comm_free(mpi_async_comm_);
+	}
 	/** 
 	 * as we need to free MPI_Comm which has to be before MPI_Finalize.
 	 * If we use deconstructor. The MPI_Comm_free will be after MPI_Finalize.
@@ -94,7 +105,7 @@ public:
 	AsyncMem<Dtype>* GetAsyncMem() { return mem_; }
 	void ThreadBarrierWait() { pthread_barrier_wait(&thread_barrier_); }
 private:
-	AsyncCommConfig<Dtype>& config_;
+	AsyncCommConfig<Dtype> config_;
 	AsyncMem<Dtype>* mem_;
 	MPI_Comm* mpi_async_comm_;
 	/**

@@ -119,7 +119,7 @@ void TestJoinComm() {
 
 	// we simulate the real setting where we have roughly 200M parameter
 	AsyncMem<Dtype> mem(2, 20000000);
-	AsyncCommConfig<Dtype> config(true);
+	AsyncCommConfig<Dtype> config;
 	AsyncCommunicator<Dtype> comm(config);
 	comm.AttachAsyncMem(&mem);
 	int n_iter = 10;

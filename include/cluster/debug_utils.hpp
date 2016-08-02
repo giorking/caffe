@@ -1,6 +1,7 @@
 #ifndef DEBUG_UTILS_H_
 #define DEBUG_UTILS_H_
 
+#include <mpi.h>
 #include <vector>
 #include <iostream>
 #include <string>
@@ -11,6 +12,25 @@
 #ifndef DEBUG
 #define DEBUG
 #endif
+
+#ifndef TEST
+#define TEST
+#endif
+
+
+#define DEBUG_PRINT(content) do { \
+	int debug_mpi_rank; \
+	MPI_Comm_rank(MPI_COMM_WORLD, &debug_mpi_rank); \
+	if (debug_mpi_rank == 0) \
+		std::cout << content; \
+} while(0)
+
+#define DEBUG_PRINT_RANK(comm) do { \
+	int debug_mpi_rank; \
+	MPI_Comm_rank(comm, &debug_mpi_rank); \
+	std::cout << "rank " << debug_mpi_rank << std::endl; \
+} while(0)
+
 
 using namespace std;
 

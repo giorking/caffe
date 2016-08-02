@@ -3,7 +3,7 @@
 
 
 template <typename Dtype>
-AsyncCommunicator<Dtype>::AsyncCommunicator(AsyncCommConfig<Dtype>& config) :
+AsyncCommunicator<Dtype>::AsyncCommunicator(const AsyncCommConfig<Dtype>& config) :
 	config_(config), mem_(NULL), mpi_async_comm_(NULL), stop_(false) {
 	pthread_mutex_init(&stop_lock_, NULL);
 	pthread_barrier_init(&thread_barrier_, NULL, 2);
@@ -47,20 +47,57 @@ void AsyncCommunicator<Dtype>::SendRecvLoop(int n_iter) {
 	MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
 	int async_rank = config_.mpi_async_rank_;
 	MPI_Status recv_status;
+
+	int test_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &test_rank);
+
+	// if (test_rank == 0)
+	// 	DEBUG_PRINT("rank 0 comm step 0\n");
+	// else
+	// 	DEBUG_PRINT("rank 1 comm step 0\n");
+
+
+
 	for (int iter = 0; iter < n_iter; iter++) {
-		// Note config_.group_id_ + config_.n_group_ - 1 prevent result -1 
+		// Note config_.group_id_ + config_.n_group_ - 1 prevent result being -1 
 		MPI_Recv( (void*)mem_->buf_, mem_->buf_size_, type, 
 			(config_.group_id_ + config_.n_group_ - 1) % config_.n_group_, 
 			ASYNC_MSG, *mpi_async_comm_, &recv_status);
 
+		// if (test_rank == 0)
+		// 	DEBUG_PRINT("rank 0 comm step 1\n");
+		// else
+		// 	DEBUG_PRINT("rank 1 comm step 1\n");
+
 		// b1: wait until recv finishes.		
 		this->ThreadBarrierWait();
+
+
+		// if (test_rank == 0)
+		// 	DEBUG_PRINT("rank 0 comm step 3\n");
+		// else
+		// 	DEBUG_PRINT("rank 1 comm step 3\n");
 
 		// b2: wait for the other thread to finish update delta to mem_
 		this->ThreadBarrierWait();
 
+
+		std::cout << "rank " << test_rank << " comm step 4" << std::endl;
+
+
+		// std::cout << "rank " << test_rank << " send start " << std::endl;
+
 		MPI_Send( (void*)mem_->buf_, mem_->buf_size_, type, 
 			(config_.group_id_ + 1) % config_.n_group_, ASYNC_MSG, *mpi_async_comm_);
+
+
+		// std::cout << "rank " << test_rank << " send done " << std::endl;
+
+		// if (test_rank == 0)
+		// 	DEBUG_PRINT("rank 0 comm step 6\n");
+		// else
+		// 	DEBUG_PRINT("rank 1 comm step 6\n");
+
 
 		// b3: prevent MPI recv overlap with reading updated model for compute
 		this->ThreadBarrierWait();

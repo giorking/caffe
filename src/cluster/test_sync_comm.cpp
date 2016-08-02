@@ -14,41 +14,32 @@
 using namespace std;
 
 template<typename Dtype>
-void GetConfigForClique(vector<SyncCommConfig<Dtype> >& configs,
-	vector<int>& gpu_ids, int n_config, bool set_group_root, 
-	int buf_size, int mpi_rank) {
+void GetConfigForClique(vector<SyncCommConfig<Dtype> >& configs, vector<int>& gpu_ids) {
 	/* Generate configs for a clique of size n_config */
 	ncclUniqueId clique_id;
   NCCL_CHECK(ncclGetUniqueId(&clique_id) );
 
-	assert(gpu_ids.size() >= n_config);
-
-  for (int i = 0; i < n_config; i++) {
-  	if (set_group_root && i == 0)
-	    configs.push_back(SyncCommConfig<Dtype> (gpu_ids[i], 0, n_config, i, 0, clique_id, 
-	    	true, buf_size, buf_size) );
-	  else
-	  	configs.push_back(SyncCommConfig<Dtype> (gpu_ids[i], 0, n_config, i, 0, clique_id, 
-	    	false, buf_size, buf_size) ); 
-  }	
+  for (int i = 0; i < gpu_ids.size(); i++) {
+	  SyncCommConfig<Dtype> config(gpu_ids[i], clique_id);
+	  configs.push_back(config);
+	}
 }
 
 
 template<typename Dtype>
-void MPIAllReduceThread(SyncCommConfig<Dtype> config, Dtype buf_val, 
-	vector<Dtype>& rand_val, int machine_id, int n_thread) {
-  SyncCommunicator<Dtype> comm(config); 
-	int64_t buf_size = config.GetGpuBufferSize();
+void MPIAllReduceThread(SyncCommConfig<Dtype>& config, Dtype buf_val, 
+	vector<Dtype>& rand_val, int machine_id, int n_thread, int64_t buf_size) {
+  SyncCommunicator<Dtype> comm(config, buf_size); 
   Dtype* host_buffer = new Dtype[buf_size];
   /*copy into GPU memory*/
-  for (int i = 0; i < config.GetGpuBufferSize(); i++)
+  for (int i = 0; i < buf_size; i++)
   	host_buffer[i] = rand_val[machine_id];
   CUDA_CHECK(cudaMemcpy(comm.GetGpuBuffer(), host_buffer, 
   	sizeof(Dtype) * buf_size, cudaMemcpyHostToDevice) );
 
   // // DEBUG
-  // for (int i = 0; i < rand_val.size() ; i++)
-  // 	std::cout << "test host " << i << " " << rand_val[i] << std::endl;
+  for (int i = 0; i < rand_val.size() ; i++)
+  	std::cout << "test host " << i << " " << rand_val[i] << std::endl;
 
   // // std::cout << "host buff " << host_buffer[0] << " " << buf_size << " " << rand_val[machine_id] << std::endl;
 
@@ -65,8 +56,9 @@ void MPIAllReduceThread(SyncCommConfig<Dtype> config, Dtype buf_val,
   	correct_val += rand_val[i];
   correct_val *= n_thread;
 
-  // // DEBUG 
-  // std::cout << "correct value " << correct_val << std::endl;
+  // DEBUG 
+  std::cout << "correct value " << correct_val << std::endl;
+  std::cout << "compute value " << host_buffer[0] << std::endl;
 
  	for (int i = 0; i < buf_size; i++)
  		assert(std::abs(host_buffer[i] - correct_val) <= 1e-8 * correct_val);
@@ -86,7 +78,7 @@ void TestMPIAllReduce(int argc, char** argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
 
-	/* single-thread test */
+	// share random value 
 	vector<Dtype> rand_value(n_proc, 0.0);
 	MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
 	if (rank == 0) {
@@ -105,17 +97,14 @@ void TestMPIAllReduce(int argc, char** argv) {
   GetGpuIds(gpu_ids);
 
 	vector<SyncCommConfig<Dtype> > configs;
-	if (rank == 0)
-		GetConfigForClique(configs, gpu_ids, gpu_ids.size(), true, 10000, rank);
-	else
-		GetConfigForClique(configs, gpu_ids, gpu_ids.size(), false, 10000, rank);
+	GetConfigForClique(configs, gpu_ids);
 
 
 	vector<std::thread> threads;
 	for (int i = 0; i < configs.size(); i++) 
 		// MPIAllReduceThread<Dtype>(configs[i], rand_value[rank], rand_value, rank, gpu_ids.size() );
 		threads.push_back(std::thread(MPIAllReduceThread<Dtype>, std::ref(configs[i] ), 
-			rand_value[rank], std::ref(rand_value), rank, gpu_ids.size() ) );
+			rand_value[rank], std::ref(rand_value), rank, gpu_ids.size(), 20000000) );
 
 	for (int i = 0; i < gpu_ids.size(); i++)
     threads[i].join();
