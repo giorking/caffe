@@ -28,6 +28,10 @@ void Train() {
 		std::cout << "Processes can not be equaly distributed to machines!" << std::endl;
 		std:exit(1);
 	}
+	if (mpi_size / N_PROC_PER_GROUP <= 1) {
+		std::cout << "Need multiple group to test async worker!" << std::endl;
+		std::exit(1);
+	}
 
 	std::vector<AsyncWorker<Dtype> > workers;
 	ncclUniqueId clique_id;

@@ -27,18 +27,18 @@
 // 		}
 // 	}
 	
-// 	/* request to execute the task on current threads. pure virtual */
+// 	 request to execute the task on current threads. pure virtual 
 // 	virtual void Request() {};
 // 	/* Release one resource for other threads to work on. pure virtual. */
 // 	virtual void Release() {};
 
-// #ifdef DEBUG
+// #ifdef TEST
 // 	/* for debugging purpose. record the ops posted into job queue */
 // 	std::vector<bool> debug_op_;
 // #endif
 
 // protected:
-// 	 count_ is the currently number of availble resources 
+// 	// count_ is the currently number of availble resources 
 // 	int count_;
 // 	/* the total number of threads involving this semaphore */
 // 	int n_thread_;
@@ -49,22 +49,23 @@
 // };
 
 
-//  forward declaration for friend class template 
+// // forward declaration for friend class template 
 // template <typename Dtype>
 // class AsyncMPICommunicator;
 
 
-// /**
+// *
 //  * Semephore for multi-thread access to the CPU memory for MPI async communication.
 //  * We initialize a condition variable for each thread to enable signaling first
 //  * to the prior task. We have one send thread and one receive thread. As long as
 //  * there is a send task waiting, execute it first. It is guaranteed there will be
 //  * at most one prior send task in the queue at any time. Read operations are just 
 //  * kept in the queue in the posting order.
-//  */
+ 
 // class SemAsyncMem : public Semaphore {
 // public:
 // 	SemAsyncMem(int count, int n_thread) : Semaphore(count, n_thread) {}
+// 	SemAsyncMem() : SemAsyncMem(1, 1) {};
 // 	void UpdateJobQueue(bool prior, int thread_id);
 // 	/**
 // 	 * Request to work on resource
@@ -116,7 +117,7 @@ public:
 	Dtype* GetBuf() {return buf_; }
 	int64_t GetBufSize() { return buf_size_; }
 
-// #ifdef DEBUG
+// #ifdef TEST
 // 	vector<bool> GetDebugOp() { return sem_.debug_op_; }
 // #endif
 

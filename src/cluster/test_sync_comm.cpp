@@ -78,6 +78,11 @@ void TestMPIAllReduce(int argc, char** argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
 
+	if (N_PROC_PER_GROUP == 1) {
+		std::cout << "Need multiple processes in one group. Modify N_PROC_PER_GROUP." << std::endl;
+		std::exit(1);		
+	}
+
 	// share random value 
 	vector<Dtype> rand_value(n_proc, 0.0);
 	MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;

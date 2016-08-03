@@ -47,7 +47,7 @@ ALLOBJ += $(ASYNCCOMMOBJ)
 # async worker test
 ASYNCWORKEREXE = test_async_worker
 ASYNCWORKERSRC = test_async_worker.cpp async_mem.cpp sync_communicator.cpp \
-	async_communicator.cpp worker.cpp debug_utils.cpp
+	async_communicator.cpp worker.cpp debug_utils.cpp timer.cpp
 ASYNCWORKEROBJ = $(ASYNCWORKERSRC:%.cpp=%.o)
 ALLEXE += $(ASYNCWORKEREXE)
 ALLOBJ += $(ASYNCWORKEROBJ)

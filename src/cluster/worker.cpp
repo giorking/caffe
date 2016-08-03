@@ -1,11 +1,12 @@
 #include <thread>
 #include "cluster/worker.hpp"
 #include "cluster/debug_utils.hpp"
+#include "cluster/timer.hpp"
 
 
 template <typename Dtype>
 Worker<Dtype>::Worker(const SyncCommConfig<Dtype>& sync_comm_config) : 
-	solver_(20000000, 5), 
+	solver_(20000000, 10), 
 	sync_comm_(sync_comm_config, this->solver_.buf_size_) {
 	// TODO Jian : get buffer size from solver, combining everything of the solver
 	solver_.SetDiffBuf(sync_comm_.gpu_buf_);	
@@ -38,9 +39,11 @@ void Worker<Dtype>::LoadDataLoop() {
 #endif
 
 	for (int i = 0; i < solver_.n_iter_; i++) {
+		// TODO Jian replace with real data loading
+		usleep(300000);
 
 #ifdef DEBUG
-	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " dataload done");
+	DEBUG_PRINT_RANK(MPI_COMM_WORLD, "Data loading done!");
 #endif
 		
 		pthread_barrier_wait(&data_ready_);
@@ -71,7 +74,7 @@ template <typename Dtype>
 void AsyncWorker<Dtype>::AsyncComputeLoop() {
 
 #ifdef DEBUG
-	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in AsyncComputeLoop function\n");
+	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in AsyncComputeLoop function");
 #endif
 
 	// prevent trigger send overlaps with recv thread in wait on the same buf. 
@@ -84,46 +87,36 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 	std::vector<Dtype> test_res;
 #endif
 
+#ifdef DEBUG
+	Timer timer;
+	// timer.start();
+#endif 
+
 	for (int i = 0; i < this->solver_.n_iter_; i++) {
 
-		// if (test_rank == 0)
-		// 	DEBUG_PRINT("rank 0 compute step 1\n");
-		// else
-		// 	DEBUG_PRINT("rank 1 compute step 1\n");
+#ifdef DEBUG
+	timer.start();
+#endif 
 
 		// b1: wait until comm thread finish receive
 		this->async_comm_.ThreadBarrierWait();
 
-		// if (test_rank == 0)
-		// 	DEBUG_PRINT("rank 0 compute step 2\n");
-		// else
-		// 	DEBUG_PRINT("rank 1 compute step 2\n");
+#ifdef DEBUG
+	timer.stop();
+	// DEBUG_PRINT_RANK(MPI_COMM_WORLD, "")
+	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), "Receive wait ");
+	timer.start();
+#endif
 
 		// commit delta to mem_
 		this->CommitDiffToAsyncMem(this->sync_comm_.GetMpiSyncBuffer() );
 		// this->solver_.CommitModelDiff(this->async_mem_.buf_, this->async_mem_.buf_size_);
 
-
-		// if (test_rank == 0)
-		// 	DEBUG_PRINT("rank 0 compute step 3\n");
-		// else
-		// 	DEBUG_PRINT("rank 1 compute step 3\n");
-
 		// b2: wait until finish update delta to mem_
 		this->async_comm_.ThreadBarrierWait();
 
-		// if (test_rank == 0)
-		// 	DEBUG_PRINT("rank 0 compute step 4\n");
-		// else
-		// 	DEBUG_PRINT("rank 1 compute step 4\n");
-
 		// read mem_ for compute
 		this->solver_.RecvModel(this->async_mem_.buf_, this->async_mem_.buf_size_);
-
-		// if (test_rank == 0)
-		// 	DEBUG_PRINT("rank 0 compute step 5\n");
-		// else
-		// 	DEBUG_PRINT("rank 1 compute step 5\n");
 
 #ifdef TEST
 		test_res.push_back(this->solver_.model_[0] );
@@ -143,9 +136,15 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 		// do intra-group synchronization
 		this->sync_comm_.SyncGroup();
 
-
 		std::cout << "rank " << async_comm_.config_.mpi_rank_ << " round " 
 			<< i << " done " << std::endl;
+		
+#ifdef DEBUG
+	timer.stop();
+	// DEBUG_PRINT_RANK(MPI_COMM_WORLD, "")
+	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), "Computing in ");
+#endif
+
 	}
 
 #ifdef TEST
@@ -169,7 +168,7 @@ template <typename Dtype>
 void AsyncWorker<Dtype>::AsyncCommLoop() {
 
 #ifdef DEBUG
-	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in AsyncCommLoop function\n");
+	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in AsyncCommLoop function");
 #endif
 
 	// last group need to initilize the ring based async computation
@@ -209,7 +208,7 @@ template <typename Dtype>
 void AsyncWorker<Dtype>::Run() {
 
 #ifdef DEBUG
-	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in run function\n");
+	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in run function");
 #endif
 
 	// spawn data loading thread 

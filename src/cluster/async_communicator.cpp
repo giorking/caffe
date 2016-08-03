@@ -1,5 +1,7 @@
 #include "cluster/async_mem.hpp"
 #include "cluster/async_communicator.hpp"
+#include "cluster/debug_utils.hpp"
+#include "cluster/timer.hpp"
 
 
 template <typename Dtype>
@@ -48,55 +50,45 @@ void AsyncCommunicator<Dtype>::SendRecvLoop(int n_iter) {
 	int async_rank = config_.mpi_async_rank_;
 	MPI_Status recv_status;
 
-	int test_rank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &test_rank);
-
-	// if (test_rank == 0)
-	// 	DEBUG_PRINT("rank 0 comm step 0\n");
-	// else
-	// 	DEBUG_PRINT("rank 1 comm step 0\n");
-
-
+#ifdef DEBUG
+	Timer timer;
+#endif 
 
 	for (int iter = 0; iter < n_iter; iter++) {
+
+#ifdef DEBUG
+	timer.start();
+#endif 
+
 		// Note config_.group_id_ + config_.n_group_ - 1 prevent result being -1 
 		MPI_Recv( (void*)mem_->buf_, mem_->buf_size_, type, 
 			(config_.group_id_ + config_.n_group_ - 1) % config_.n_group_, 
 			ASYNC_MSG, *mpi_async_comm_, &recv_status);
 
-		// if (test_rank == 0)
-		// 	DEBUG_PRINT("rank 0 comm step 1\n");
-		// else
-		// 	DEBUG_PRINT("rank 1 comm step 1\n");
+#ifdef DEBUG
+	timer.stop();
+	// DEBUG_PRINT_RANK(MPI_COMM_WORLD, "")
+	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), "Receive in ");
+#endif
 
 		// b1: wait until recv finishes.		
 		this->ThreadBarrierWait();
 
-
-		// if (test_rank == 0)
-		// 	DEBUG_PRINT("rank 0 comm step 3\n");
-		// else
-		// 	DEBUG_PRINT("rank 1 comm step 3\n");
-
 		// b2: wait for the other thread to finish update delta to mem_
 		this->ThreadBarrierWait();
 
-
-		std::cout << "rank " << test_rank << " comm step 4" << std::endl;
-
-
-		// std::cout << "rank " << test_rank << " send start " << std::endl;
+#ifdef DEBUG
+	timer.start();
+#endif 
 
 		MPI_Send( (void*)mem_->buf_, mem_->buf_size_, type, 
 			(config_.group_id_ + 1) % config_.n_group_, ASYNC_MSG, *mpi_async_comm_);
 
-
-		// std::cout << "rank " << test_rank << " send done " << std::endl;
-
-		// if (test_rank == 0)
-		// 	DEBUG_PRINT("rank 0 comm step 6\n");
-		// else
-		// 	DEBUG_PRINT("rank 1 comm step 6\n");
+#ifdef DEBUG
+	timer.stop();
+	// DEBUG_PRINT_RANK(MPI_COMM_WORLD, "")
+	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), "Send in ");
+#endif
 
 
 		// b3: prevent MPI recv overlap with reading updated model for compute

@@ -122,7 +122,7 @@ void TestJoinComm() {
 	AsyncCommConfig<Dtype> config;
 	AsyncCommunicator<Dtype> comm(config);
 	comm.AttachAsyncMem(&mem);
-	int n_iter = 10;
+	int n_iter = 5;
 
 	std::thread intra_group_thread(IntraGroupThreadEntry<Dtype>, &comm, n_iter);
 	std::thread inter_group_thread(InterGroupThreadEntry<Dtype>, &comm, n_iter);

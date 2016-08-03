@@ -16,7 +16,7 @@ void SendThreadEntry(AsyncMem<Dtype>& mem, std::vector<int>& res_vec, int thread
 	// std::srand(seed);
 	for (int i = 0; i < N_SEND; i++) {
 		usleep(rand() % 100 + 5000) ;
-		mem.Request(true, thread_id);
+		mem.SemRequest(true, thread_id);
 		Dtype* buf = mem.GetBuf();
 		for (int j = 0; j < mem.GetBufSize(); j++) {
 			buf[j] =  i * 2 + 1;
@@ -24,7 +24,7 @@ void SendThreadEntry(AsyncMem<Dtype>& mem, std::vector<int>& res_vec, int thread
 		}
 		/* record the buf content after this operation */
 		res_vec.push_back(buf[0] );
-		mem.Release();
+		mem.SemRelease();
 	}
 }
 
@@ -34,7 +34,7 @@ void RecvThreadEntry(AsyncMem<Dtype>& mem, std::vector<int>& res_vec, int thread
 	// std::srand(seed + 1);
 	for (int i = 0; i < N_RECV; i++) {
 		usleep(rand() % 100);
-		mem.Request(false, thread_id);
+		mem.SemRequest(false, thread_id);
 		Dtype* buf = mem.GetBuf();
 		for (int j = 0; j < mem.GetBufSize(); j++) {
 			buf[j] = i * 2;
@@ -42,7 +42,7 @@ void RecvThreadEntry(AsyncMem<Dtype>& mem, std::vector<int>& res_vec, int thread
 		}
 		res_vec.push_back(buf[0] );
 
-		mem.Release();
+		mem.SemRelease();
 	}
 }
 
@@ -74,8 +74,8 @@ void TestAsyncMemTwoTreads() {
 	int odd = 1;
 	int even = 0;
 	for (int i = 0; i < res_vec.size(); i++) {
-		// std::cout << "job " << i << " " << debug_op[i] 
-		// 	<< " value " << res_vec[i] << std::endl;
+		std::cout << "job " << i << " " << debug_op[i] 
+			<< " value " << res_vec[i] << std::endl;
 		if (debug_op[i] ) {
 			assert(res_vec[i] == odd);
 			odd += 2;
