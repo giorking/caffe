@@ -36,7 +36,7 @@ public:
       assert(n_proc % N_PROC_PER_GROUP == 0);
       group_id_ = mpi_rank_ / N_PROC_PER_GROUP;
       // current we assume each process control a clique
-      n_dev_clique_local_= N_DEVICE_PER_PROC;
+      n_dev_in_clique_= N_DEVICE_PER_PROC;
       clique_rank_ = device_id_ % N_DEVICE_PER_PROC;
       clique_root_rank_ = CLIQUE_ROOT_RANK;
       if (clique_rank_ == clique_root_rank_)
@@ -51,7 +51,7 @@ public:
   SyncCommConfig(const SyncCommConfig<Dtype>& config) : 
     device_id_(config.device_id_), 
     group_id_(config.group_id_),
-    n_dev_clique_local_(config.n_dev_clique_local_),
+    n_dev_in_clique_(config.n_dev_in_clique_),
     clique_rank_(config.clique_rank_),
     clique_root_rank_(config.clique_root_rank_),
     clique_id_(config.clique_id_),
@@ -75,7 +75,7 @@ private:
    */
   ncclUniqueId clique_id_;
   /* define how many dev on the local machine is in the same clique*/
-  int n_dev_clique_local_;
+  int n_dev_in_clique_;
   int clique_rank_;
   int clique_root_rank_;
   bool is_clique_root_;
@@ -93,6 +93,7 @@ private:
   // int64_t mpi_sync_buf_size_;
 
 friend class SyncCommunicator<Dtype>;
+friend class Worker<Dtype>;
 }; 
 
 /*base communicator class*/
@@ -112,16 +113,16 @@ public:
     if (stream_comm_ != NULL)
       CUDA_CHECK(cudaStreamDestroy(*stream_comm_) );
   }
-  void InitComm();
-   /**
-   * Building blocks for different synchronization setting
-   * Group may include gpus on multiple nodes. We call the 
-   * part of a group as the local clique on a node. 
-   */
+  void InitNcclCommInThread();
+  /**
+  * Building blocks for different synchronization setting
+  * Group may include gpus on multiple nodes. We call the 
+  * part of a group as the local clique on a node. 
+  */
   virtual void CliqueReduce();
   virtual void CliqueBroadcast();
   virtual void InterMachineAllReduce();
-  virtual void SyncGroup();
+  virtual void SyncGroup(bool do_broadcast);
   
   /* access function */
   inline Dtype* GetGpuBuffer() { return gpu_buf_; }

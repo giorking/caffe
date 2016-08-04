@@ -5,7 +5,7 @@ MPICXX = /usr/local/bin/mpic++
 
 # compiler flags
 CFLAGS = -std=c++11
-LDFLAGS = -L/usr/local/cuda/lib64 -lcudart -lcuda -lglog -lnccl -lmpi 
+LDFLAGS = -L/usr/local/cuda/lib64 -lcudart -lcuda -lcublas -lglog -lnccl -lmpi 
 INCFLAGS = -I/home/zjian/Code/novu_caffe_v2/caffe/include/ -I/usr/local/cuda/include
 PTHREADFLAGS = -pthread
 ERRFLAG = -fmax-errors=3
@@ -43,11 +43,20 @@ ASYNCCOMMOBJ = $(ASYNCCOMMSRC:%.cpp=%.o)
 ALLEXE += $(ASYNCCOMMEXE)
 ALLOBJ += $(ASYNCCOMMOBJ)
 
+# sync worker test
+SYNCWORKEREXE = test_sync_comm
+SYNCWORKERSRC = test_sync_worker.cpp sync_communicator.cpp \
+	worker.cpp debug_utils.cpp timer.cpp solver.cpp comm_utils.cpp
+SYNCWORKEROBJ = $(SYNCWORKERSRC:%.cpp=%.o)
+# SYNCWORKEROBJ += $(SYNCWORKERSRC:%.cu=%.cu.o)
+ALLEXE += $(SYNCWORKEREXE)
+ALLOBJ += $(SYNCWORKEROBJ)
 
 # async worker test
 ASYNCWORKEREXE = test_async_worker
 ASYNCWORKERSRC = test_async_worker.cpp async_mem.cpp sync_communicator.cpp \
-	async_communicator.cpp worker.cpp debug_utils.cpp timer.cpp
+	async_communicator.cpp worker.cpp async_worker.cpp debug_utils.cpp \
+	timer.cpp solver.cpp comm_utils.cpp
 ASYNCWORKEROBJ = $(ASYNCWORKERSRC:%.cpp=%.o)
 ALLEXE += $(ASYNCWORKEREXE)
 ALLOBJ += $(ASYNCWORKEROBJ)
@@ -56,6 +65,11 @@ ALLOBJ += $(ASYNCWORKEROBJ)
 %.o: %.cpp
 	@echo Compiling $<
 	$(NVCC) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -c $< -o $@
+
+
+# %.cu.o: %.cu
+# 	@echo Compiling $<
+# 	$(NVCC) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -c $< -o $@	
 
 
 nccl: $(NCCLOBJ)
@@ -82,6 +96,14 @@ async_comm: $(ASYNCCOMMOBJ)
 	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
 	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
 	mpirun --hostfile hosts.txt -np 8 ./$(ASYNCCOMMEXE)
+
+
+sync_worker: $(SYNCWORKEROBJ)
+	@echo Linking
+	$(MPICXX) $(CFLAGS) $(PTHREADFLAGS) $(SYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(SYNCWORKEREXE)
+	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
+	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
+	mpirun --hostfile hosts.txt -np 2 ./$(SYNCWORKEREXE)
 
 
 async_worker: $(ASYNCWORKEROBJ)

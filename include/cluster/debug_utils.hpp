@@ -9,9 +9,9 @@
 #include <cuda_runtime.h>
 // #include "caffe/util/device_alternate.hpp"
 
-// #ifndef DEBUG
-// #define DEBUG
-// #endif
+#ifndef DEBUG
+#define DEBUG
+#endif
 
 #ifndef TEST
 #define TEST
@@ -25,11 +25,13 @@
 		std::cout << content; \
 } while(0)
 
+
 #define DEBUG_PRINT_RANK(comm, info) do { \
 	int debug_mpi_rank; \
 	MPI_Comm_rank(comm, &debug_mpi_rank); \
 	std::cout << "rank " << debug_mpi_rank << " " << info << std::endl; \
 } while(0)
+
 
 #define DEBUG_PRINT_TIME(time_micro_sec, info) do { \
 	std::cout << info << " " << time_micro_sec << " milli seconds" << std::endl; \
@@ -38,7 +40,7 @@
 
 using namespace std;
 
-void GetGpuIds(vector<int>& gpu_ids);
+// void GetGpuIds(vector<int>& gpu_ids);
 
 template <typename Dtype>
 void DisplayGpuArray(Dtype* GpuArray, int64_t n_entry_to_display, string& str);

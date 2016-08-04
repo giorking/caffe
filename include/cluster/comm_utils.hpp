@@ -74,6 +74,8 @@ template<> struct DtypeToNCCLDtype<double> {
   const static ncclDataType_t type = ncclDouble; 
 };
 
+void GetGpuIds(std::vector<int>& gpu_ids);
+
 
 /* Compile time mapping from typename Dtype to MPI_Datatype*/
 template <typename Dtype>

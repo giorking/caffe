@@ -4,53 +4,7 @@
 #include "cluster/async_mem.hpp"
 #include "cluster/sync_communicator.hpp"
 #include "cluster/async_communicator.hpp"
-
-
-// a solver for debugging before connect to caffe
-template <typename Dtype>
-class Solver {
-public:
-	Solver() : model_(NULL), diff_(NULL) {};
-	Solver(int64_t buf_size, int n_iter) : model_(NULL), diff_(NULL) {
-		n_iter_ = n_iter;
-		buf_size_ = buf_size;
-		model_ = new Dtype[buf_size_];
-	}
-	Solver(const Solver<Dtype>& solver) :
-		Solver(solver.buf_size_, solver.n_iter_) {}
-	~Solver() {
-		if (model_ != NULL)
-			delete[] model_;
-	}
-	void Compute() {
-		usleep(500000);
-		Dtype* host_buf = new Dtype[buf_size_];
-		for (int i = 0; i < buf_size_; i++)
-			host_buf[i] = 1.0;
-		CUDA_CHECK(cudaMemcpy(diff_, host_buf, sizeof(Dtype) * buf_size_, cudaMemcpyHostToDevice) );
-		delete[] host_buf;
-	}
-	void RecvModel(Dtype* buf, int64_t buf_size) {
-		// TODO Jian assert buffer size is the same
-		memcpy(model_, buf, sizeof(Dtype) * buf_size_);
-	}
-	void CommitModelDiff(Dtype* buf, int64_t buf_size) {
-		// TODO Jian assert buffer size is the same
-		// commit delta to model_
-		for (int i = 0; i < buf_size_; i++)
-			// +1 for test
-			buf[i] += 1;
-	}
-	void SetDiffBuf(Dtype* diff_buf) { diff_ = diff_buf; };
-private:
-	Dtype* model_;
-	Dtype* diff_;
-	int64_t buf_size_;
-	int n_iter_;
-
-friend class Worker<Dtype>;
-friend class AsyncWorker<Dtype>;
-};
+#include "cluster/solver.hpp"
 
 
 /**
@@ -101,7 +55,7 @@ public:
 	 * in the computation time for last iteration.
 	 */
 	void LoadDataLoop();
-	virtual void Run() {}
+	virtual void Run();
 
 protected:
 	/* TODO Jian: add a real net solver */
@@ -111,41 +65,6 @@ protected:
 
 	/* replace this barrier with a barrier from solver*/
 	pthread_barrier_t data_ready_;
-};
-
-
-template <typename Dtype>
-class AsyncWorker : public Worker<Dtype> {
-public:
-	AsyncWorker(const SyncCommConfig<Dtype>& sync_comm_config_,
-		const AsyncCommConfig<Dtype>& async_comm_config_);
-	AsyncWorker(const AsyncWorker<Dtype>& worker) :
-		AsyncWorker<Dtype> (worker.sync_comm_.config_, worker.async_comm_.config_) {}
-	// commit model diff to async memory
-	void CommitDiffToAsyncMem(Dtype* diff_buf);
-	virtual void AsyncComputeLoop();
-	/**
-	 * handle async communication in the ring fashion.
-	 * for detail, refer to AsyncCommunicator.hpp
-	 */
-	virtual void AsyncCommLoop();
-	/** 
-	 * run one step. involve the following:
-	 * 1. gradient computation
-	 * 2. gradient all reduce communication
-	 * 3. asynchronously update groups in a ring-based fashion.
-	 * The ring-based design helps keep workers computing 
-	 * with no inter-group waiting theoretically. 
-	 * Our design hide the asynchronized inter-group communication
-	 * to computing while the centralized asynchronized training
-	 */
-	virtual void Run();
-
-private:
-	/* async mpi communicator in addition to the synchronized one */
-	AsyncMem<Dtype> async_mem_;
-	AsyncCommunicator<Dtype> async_comm_;	
-
 };
 
 

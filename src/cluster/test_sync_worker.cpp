@@ -29,19 +29,18 @@ void Train() {
 		std::cout << "Processes can not be equaly distributed to machines!" << std::endl;
 		std:exit(1);
 	}
-	if (mpi_size / N_PROC_PER_GROUP <= 1) {
-		std::cout << "Need multiple group to test async worker!" << std::endl;
+	if (mpi_size / N_PROC_PER_GROUP != 1) {
+		std::cout << "Need a single group to test sync worker!" << std::endl;
 		std::exit(1);
 	}
 
-	std::vector<AsyncWorker<Dtype> > workers;
+	std::vector<Worker<Dtype> > workers;
 	ncclUniqueId clique_id;
   NCCL_CHECK(ncclGetUniqueId(&clique_id) );
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
 		// TODO Jian: add solvers
 		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id);
-		AsyncCommConfig<Dtype> async_config;
-		AsyncWorker<Dtype> worker(sync_config, async_config);
+		Worker<Dtype> worker(sync_config);
 		workers.push_back(worker);
 	}
 
