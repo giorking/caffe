@@ -36,10 +36,12 @@ void Train() {
 
 	std::vector<Worker<Dtype> > workers;
 	ncclUniqueId clique_id;
-  NCCL_CHECK(ncclGetUniqueId(&clique_id) );
+	ncclComm_t* nccl_comm = new ncclComm_t[N_DEVICE_PER_PROC];
+  // NCCL_CHECK(ncclGetUniqueId(&clique_id) );
+  NCCL_CHECK(ncclCommInitAll(nccl_comm, N_DEVICE_PER_PROC, &(gpu_ids[0] ) ) );
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
 		// TODO Jian: add solvers
-		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id);
+		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id, &(nccl_comm[i] ) );
 		Worker<Dtype> worker(sync_config);
 		workers.push_back(worker);
 	}
@@ -54,6 +56,7 @@ void Train() {
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++)
 		workers[i].Run();
 
+	delete[] nccl_comm;
 	std::cout << "async worker test passed!" << std::endl;
 }
 

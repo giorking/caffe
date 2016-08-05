@@ -26,8 +26,8 @@ class AsyncWorker;
 template<typename Dtype>
 class SyncCommConfig {
 public:
-  SyncCommConfig(int device_id, ncclUniqueId clique_id) :
-    device_id_(device_id), clique_id_(clique_id) {
+  SyncCommConfig(int device_id, ncclUniqueId clique_id, ncclComm_t* nccl_comm) :
+    device_id_(device_id), clique_id_(clique_id), nccl_comm_(nccl_comm) {
       int n_device;
       int n_proc;
       CUDA_CHECK(cudaGetDeviceCount(&n_device) );
@@ -57,7 +57,8 @@ public:
     clique_id_(config.clique_id_),
     is_clique_root_(config.is_clique_root_),
     is_group_root_(config.is_group_root_),
-    mpi_rank_(config.mpi_rank_) {}
+    mpi_rank_(config.mpi_rank_),
+    nccl_comm_(config.nccl_comm_) {}
 
   /* access function*/
   // inline int64_t GetGpuBufferSize() { return gpu_buf_size_; }
@@ -90,7 +91,8 @@ private:
   // int mpi_root_rank_;
   bool is_group_root_;
   
-  // int64_t mpi_sync_buf_size_;
+  // only get value by external attachment
+  ncclComm_t* nccl_comm_;
 
 friend class SyncCommunicator<Dtype>;
 friend class Worker<Dtype>;
@@ -109,7 +111,8 @@ public:
     if (mpi_sync_buf_ != NULL)
       delete mpi_sync_buf_;
     if (nccl_comm_ != NULL)
-      ncclCommDestroy(*nccl_comm_);
+      nccl_comm_ = NULL;
+    //   ncclCommDestroy(*nccl_comm_);
     if (stream_comm_ != NULL)
       CUDA_CHECK(cudaStreamDestroy(*stream_comm_) );
   }
@@ -128,6 +131,7 @@ public:
   inline Dtype* GetGpuBuffer() { return gpu_buf_; }
   inline Dtype* GetMpiSyncBuffer() { return mpi_sync_buf_; }
   inline bool IsCliqueRoot() { return config_.is_clique_root_; }
+  // inline void AttachNcclComm(ncclComm_t* comm) { nccl_comm_ = comm; }
   
 private:  
   /* configuration */
