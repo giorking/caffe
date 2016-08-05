@@ -24,6 +24,8 @@ SyncCommunicator<Dtype>::SyncCommunicator(const SyncCommConfig<Dtype>& config,
   CUDA_CHECK(cudaSetDevice(config_.device_id_) );
   CUDA_CHECK(cudaMalloc(&gpu_buf_, sizeof(Dtype) * gpu_buf_size_) );
   CUDA_CHECK(cudaMemset(gpu_buf_, 0, sizeof(Dtype) * gpu_buf_size_) );
+  // NOTE the initilization is delayed to compute 
+  // nccl_comm_ = (ncclComm_t*)malloc(sizeof(ncclComm_t) );
 
   int n_device;
   CUDA_CHECK(cudaGetDeviceCount(&n_device) );
@@ -40,8 +42,7 @@ SyncCommunicator<Dtype>::SyncCommunicator(const SyncCommConfig<Dtype>& config,
   //   GetGpuIds(gpu_ids);
   //   NCCL_CHECK(ncclCommInit() );
   // }
-  nccl_comm_ = (ncclComm_t*)malloc(sizeof(ncclComm_t) );
-  InitNcclCommInThread();
+  // InitNcclCommInThread();
 
   stream_comm_ = (cudaStream_t*)malloc(sizeof(cudaStream_t) );
   CUDA_CHECK(cudaStreamCreate(stream_comm_) );
@@ -132,6 +133,17 @@ void SyncCommunicator<Dtype>::SyncGroup(bool do_broadcast) {
    * clique from clique lead
    */
   
+  // check if we need to initialize nccl comm
+  if (nccl_comm_ == NULL) {
+    std::cout << "init start clique rank " << config_.clique_rank_ << std::endl;
+    nccl_comm_ = (ncclComm_t*)malloc(sizeof(ncclComm_t) );
+    CUDA_CHECK(cudaSetDevice(config_.device_id_) );
+    NCCL_CHECK(ncclCommInitRank(nccl_comm_, config_.n_dev_in_clique_, 
+      config_.clique_id_, config_.clique_rank_) );
+    std::cout << "init end clique rank " << config_.clique_rank_ << std::endl;
+  }
+
+
   // reduce within clique 
   CliqueReduce();
 
