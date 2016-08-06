@@ -26,6 +26,7 @@ class AsyncWorker;
 template<typename Dtype>
 class SyncCommConfig {
 public:
+  // we use ncclComm_t** like we use ptr of ptr for cudaMalloc
   SyncCommConfig(int device_id, ncclUniqueId clique_id, ncclComm_t* nccl_comm) :
     device_id_(device_id), clique_id_(clique_id), nccl_comm_(nccl_comm) {
       int n_device;

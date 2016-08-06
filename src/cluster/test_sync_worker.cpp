@@ -41,7 +41,7 @@ void Train() {
   NCCL_CHECK(ncclCommInitAll(nccl_comm, N_DEVICE_PER_PROC, &(gpu_ids[0] ) ) );
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
 		// TODO Jian: add solvers
-		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id, &(nccl_comm[i] ) );
+		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id, nccl_comm + i);
 		Worker<Dtype> worker(sync_config);
 		workers.push_back(worker);
 	}
