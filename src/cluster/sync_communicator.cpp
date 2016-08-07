@@ -9,14 +9,10 @@
 
 
 template <typename Dtype>
-SyncCommunicator<Dtype>::SyncCommunicator(const SyncCommConfig<Dtype>& config, 
-  const int64_t buf_size) : 
-  config_(config),
-  nccl_comm_(NULL),
-  stream_comm_(NULL),
-  mpi_sync_comm_(NULL),
-  gpu_buf_(NULL),
-  mpi_sync_buf_(NULL) {
+void SyncCommunicator<Dtype>::Init(int64_t buf_size) {
+
+  std::cout << "in sync communicator init" << std::endl;
+
   // set buffer size
   gpu_buf_size_ = buf_size;
   mpi_sync_buf_size_ = buf_size;
@@ -35,18 +31,13 @@ SyncCommunicator<Dtype>::SyncCommunicator(const SyncCommConfig<Dtype>& config,
   }
 
   std::cout << "before separated init " << config_.n_dev_in_clique_ << " " << config_.clique_rank_ <<  std::endl;
-
+  
+  CUDA_CHECK(cudaSetDevice(config_.device_id_) );
   // NCCL_CHECK(ncclCommInitRank(nccl_comm_, config_.n_dev_in_clique_, 
   //   config_.clique_id_, config_.clique_rank_) );
 
   std::cout << "after separated init " << std::endl;
 
-  // // if (config_.is_clique_root_) {
-  // //   vector<int> gpu_ids;
-  // //   GetGpuIds(gpu_ids);
-  // //   NCCL_CHECK(ncclCommInit() );
-  // // }
-  // // InitNcclCommInThread();
   CUDA_CHECK(cudaSetDevice(config_.device_id_) );
   stream_comm_ = (cudaStream_t*)malloc(sizeof(cudaStream_t) );
   CUDA_CHECK(cudaStreamCreate(stream_comm_) );
@@ -58,15 +49,6 @@ SyncCommunicator<Dtype>::SyncCommunicator(const SyncCommConfig<Dtype>& config,
     MPI_Comm_split(MPI_COMM_WORLD, config_.group_id_, 
       config_.mpi_rank_, mpi_sync_comm_);
   }
-}
-
-
-template <typename Dtype>
-void SyncCommunicator<Dtype>::InitNcclCommInThread() {
-  CUDA_CHECK(cudaSetDevice(config_.device_id_) );
-  std::thread init_thread(ncclCommInitRank, nccl_comm_, 
-    config_.n_dev_in_clique_, config_.clique_id_, config_.clique_rank_);
-  init_thread.join();
 }
 
 

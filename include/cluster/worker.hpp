@@ -37,9 +37,13 @@
 template <typename Dtype>
 class Worker {
 public:
-	Worker(const SyncCommConfig<Dtype>& sync_comm_config);
-	Worker(const Worker<Dtype>& worker);
+	Worker(const SyncCommConfig<Dtype>& sync_comm_config) : 
+		solver_(20000000, 1), 
+		sync_comm_(sync_comm_config) { std::cout << "worker constructror 0 done" << std::endl; }
+	Worker(const Worker<Dtype>& worker) :
+		Worker<Dtype> (worker.sync_comm_.config_) { std::cout << "worker constructror 1 done" << std::endl; }
 	~Worker() { pthread_barrier_destroy(&data_ready_); }
+	void Init();
 	/** 
 	 * SyncComputeLoop takes care of the local computation,
 	 * single-node multi-GPU communication and and multi-node
@@ -55,7 +59,7 @@ public:
 	 * in the computation time for last iteration.
 	 */
 	void LoadDataLoop();
-	virtual void Run(ncclComm_t* comm);
+	virtual void Run();
 
 protected:
 	/* TODO Jian: add a real net solver */

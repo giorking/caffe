@@ -41,10 +41,25 @@ void Train() {
   // NCCL_CHECK(ncclCommInitAll(nccl_comm, N_DEVICE_PER_PROC, &(gpu_ids[0] ) ) );
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
 		// TODO Jian: add solvers
-		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id, nccl_comm + i);
+		
+		std::cout << "check create worker " << i << std::endl;
+
+
+		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id);
+
+		std::cout << "ckpt 0 " << std::endl;
+
+
 		Worker<Dtype> worker(sync_config);
+
+				std::cout << "ckpt 1 " << std::endl;
+
 		workers.push_back(worker);
+
+				std::cout << "ckpt 2 " << std::endl;
 	}
+
+	
 	
 	// SyncCommConfig<Dtype> sync_config0(gpu_ids[0], clique_id, nccl_comm + 0);
 	// Worker<Dtype> worker0(sync_config0);
@@ -52,21 +67,35 @@ void Train() {
 	// SyncCommConfig<Dtype> sync_config1(gpu_ids[1], clique_id, nccl_comm + 1);
 	// Worker<Dtype> worker1(sync_config1);
 
-	std::cout << "check line 0" << std::endl;
 	/**
 	 * As we have some communication group splitting, we need to 
 	 * explicitly set barrier here to prevent one process from 
 	 * starting send too early.
 	 */
 	MPI_Barrier(MPI_COMM_WORLD);
-	// start spawn process and compute
-	std::vector<std::thread> worker_threads;
-	for (int i = 0; i < N_DEVICE_PER_PROC; i++)
-		worker_threads.push_back(std::thread (&Worker<Dtype>::Run, &(workers[i] ), nccl_comm + i) );
 
-	for (int i = 0; i < N_DEVICE_PER_PROC; i++)
-		worker_threads[i].join();
+
+	// start spawn process and compute
+	// std::vector<std::thread> worker_threads;
+
+
+		std::cout << "check line 0" << std::endl;
+	// while(1);
+
+
+	// for (int i = 0; i < N_DEVICE_PER_PROC; i++)
+	// 	worker_threads.push_back(std::thread (&Worker<Dtype>::Run, workers[i] ) );
+
+	// for (int i = 0; i < N_DEVICE_PER_PROC; i++)
+	// 	worker_threads[i].join();
 	
+		workers[0].Run();
+
+	// std::thread t0(&Worker<Dtype>::Run, &(workers[0] ) );
+
+	// t0.join();
+
+
 	// std::cout << "check out line 0 " << std::endl;
 	
 	// std::thread thread0(&Worker<Dtype>::Run, worker0, &(nccl_comm[0] ) );
@@ -90,6 +119,8 @@ int main(int argc, char** argv) {
 	MPI_Init(NULL, NULL);
 
 	Train<float>();
+
+	std::cout << "start finalize" << std::endl;
 	
 	MPI_Finalize();
 }

@@ -5,23 +5,17 @@
 
 
 template <typename Dtype>
-Worker<Dtype>::Worker(const SyncCommConfig<Dtype>& sync_comm_config) : 
-	solver_(20000000, 1), 
-	sync_comm_(sync_comm_config, this->solver_.buf_size_) {
+void Worker<Dtype>::Init() {
 	// TODO Jian : get buffer size from solver, combining everything of the solver
 	solver_.Init(sync_comm_.config_.GetDeviceId() );
-	solver_.SetDiffBuf(&(sync_comm_.gpu_buf_) );	
+	solver_.SetDiffBuf(&(sync_comm_.gpu_buf_) );
+	sync_comm_.Init(solver_.buf_size_);	
 	pthread_barrier_init(&data_ready_, NULL, 2);
 
 
-	std::cout << "check comm ptr address " << sync_comm_.nccl_comm_ << std::endl;
+	std::cout << "Init worker check comm ptr address " << sync_comm_.nccl_comm_ << std::endl;
 
 }
-
-
-template <typename Dtype>
-Worker<Dtype>::Worker(const Worker<Dtype>& worker) :
-	Worker<Dtype> (worker.sync_comm_.config_) {}
 
 
 template <typename Dtype>
@@ -132,31 +126,36 @@ void Worker<Dtype>::LoadDataLoop() {
 
 
 template <typename Dtype>
-void Worker<Dtype>::Run(ncclComm_t* comm) {
+void Worker<Dtype>::Run() {
+
+	// 	std::cout << "check line 0" << std::endl;
+	// while(1);
 
 	std::cout << "in run func " << sync_comm_.config_.device_id_ << std::endl;
 
-	int buf_size = 1000;
-	CUDA_CHECK(cudaSetDevice(sync_comm_.config_.device_id_) );
-	float* device_buf;
-	float* host_buf = (float*)malloc(sizeof(float) * buf_size);
-	CUDA_CHECK(cudaMalloc(&device_buf, sizeof(float) * buf_size) );
-	cudaStream_t* stream_comm = (cudaStream_t*)malloc(sizeof(cudaStream_t) );
-  CUDA_CHECK(cudaStreamCreate(stream_comm) );
+	// Init();
 
-  std::cout << "create done " << std::endl;
+	// int buf_size = 1000;
+	// CUDA_CHECK(cudaSetDevice(sync_comm_.config_.device_id_) );
+	// float* device_buf;
+	// float* host_buf = (float*)malloc(sizeof(float) * buf_size);
+	// CUDA_CHECK(cudaMalloc(&device_buf, sizeof(float) * buf_size) );
+	// cudaStream_t* stream_comm = (cudaStream_t*)malloc(sizeof(cudaStream_t) );
+ //  CUDA_CHECK(cudaStreamCreate(stream_comm) );
 
-  std::cout << "compare ptr address " << comm << " " << sync_comm_.nccl_comm_ << std::endl;
+ //  std::cout << "create done " << std::endl;
 
-   for (int i = 0; i < 100; i++) {
-  	std::cout << "dev " << sync_comm_.config_.device_id_ << " iter " << i << " start reduce" << std::endl;
-  	usleep(sync_comm_.config_.device_id_ * 10000000);
-	  NCCL_CHECK(ncclReduce( (const void*)device_buf, (void*)device_buf, 
-	  	buf_size, ncclFloat, ncclSum, 0, 
-	  	*(sync_comm_.nccl_comm_), *stream_comm) );
-	  std::cout << "dev " << sync_comm_.config_.device_id_ << " iter " << i << " start waiting" << std::endl;
-	  cudaStreamSynchronize(*stream_comm);
-	}
+ //  std::cout << "compare ptr address " << " " << sync_comm_.nccl_comm_ << std::endl;
+
+ //   for (int i = 0; i < 100; i++) {
+ //  	std::cout << "dev " << sync_comm_.config_.device_id_ << " iter " << i << " start reduce" << std::endl;
+ //  	usleep(sync_comm_.config_.device_id_ * 10000000);
+	//   NCCL_CHECK(ncclReduce( (const void*)device_buf, (void*)device_buf, 
+	//   	buf_size, ncclFloat, ncclSum, 0, 
+	//   	*(sync_comm_.nccl_comm_), *stream_comm) );
+	//   std::cout << "dev " << sync_comm_.config_.device_id_ << " iter " << i << " start waiting" << std::endl;
+	//   cudaStreamSynchronize(*stream_comm);
+	// }
 
 
 

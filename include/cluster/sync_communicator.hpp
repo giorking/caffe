@@ -27,8 +27,8 @@ template<typename Dtype>
 class SyncCommConfig {
 public:
   // we use ncclComm_t** like we use ptr of ptr for cudaMalloc
-  SyncCommConfig(int device_id, ncclUniqueId clique_id, ncclComm_t* nccl_comm) :
-    device_id_(device_id), clique_id_(clique_id), nccl_comm_(nccl_comm) {
+  SyncCommConfig(int device_id, ncclUniqueId clique_id) :
+    device_id_(device_id), clique_id_(clique_id) {
       int n_device;
       int n_proc;
       CUDA_CHECK(cudaGetDeviceCount(&n_device) );
@@ -58,8 +58,7 @@ public:
     clique_id_(config.clique_id_),
     is_clique_root_(config.is_clique_root_),
     is_group_root_(config.is_group_root_),
-    mpi_rank_(config.mpi_rank_),
-    nccl_comm_(config.nccl_comm_) {}
+    mpi_rank_(config.mpi_rank_) {}
 
   /* access function*/
   // inline int64_t GetGpuBufferSize() { return gpu_buf_size_; }
@@ -91,9 +90,6 @@ private:
   int mpi_rank_;
   // int mpi_root_rank_;
   bool is_group_root_;
-  
-  // only get value by external attachment
-  ncclComm_t* nccl_comm_;
 
 friend class SyncCommunicator<Dtype>;
 friend class Worker<Dtype>;
@@ -103,21 +99,31 @@ friend class Worker<Dtype>;
 template<typename Dtype>
 class SyncCommunicator {
 public:
-  SyncCommunicator(const SyncCommConfig<Dtype>& config, const int64_t buf_size);
+  SyncCommunicator(const SyncCommConfig<Dtype>& config) : 
+    config_(config),
+    nccl_comm_(NULL),
+    stream_comm_(NULL),
+    mpi_sync_comm_(NULL),
+    gpu_buf_(NULL),
+    mpi_sync_buf_(NULL),
+    gpu_buf_size_(0),
+    mpi_sync_buf_size_(0) { std::cout << "sync comm constructor 0 done " << std::endl; }
+  // SyncCommunicator(const SyncCommConfig<Dtype>& config, const int64_t buf_size);
   SyncCommunicator(const SyncCommunicator<Dtype>& comm) :
-    SyncCommunicator<Dtype> (comm.config_, comm.gpu_buf_size_) {}
+    SyncCommunicator<Dtype> (comm.config_) { std::cout << "sync comm constructor 1 done " << std::endl; }
   ~SyncCommunicator() {
     if (gpu_buf_ != NULL)
       CUDA_CHECK(cudaFree(gpu_buf_) );
     if (mpi_sync_buf_ != NULL)
       delete mpi_sync_buf_;
-    if (nccl_comm_ != NULL)
-      nccl_comm_ = NULL;
+    // if (nccl_comm_ != NULL) {
+    //   nccl_comm_ = NULL;
     //   ncclCommDestroy(*nccl_comm_);
-    if (stream_comm_ != NULL)
-      CUDA_CHECK(cudaStreamDestroy(*stream_comm_) );
+    // }
+    // if (stream_comm_ != NULL)
+    //   CUDA_CHECK(cudaStreamDestroy(*stream_comm_) );
   }
-  void InitNcclCommInThread();
+  void Init(int64_t buf_size);
   /**
   * Building blocks for different synchronization setting
   * Group may include gpus on multiple nodes. We call the 
