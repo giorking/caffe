@@ -6,21 +6,18 @@
 
 template <typename Dtype>
 Worker<Dtype>::Worker(const SyncCommConfig<Dtype>& sync_comm_config) : 
-	solver_(20000000, 10), 
+	solver_(20000000, 1), 
 	sync_comm_(sync_comm_config, this->solver_.buf_size_) {
 	// TODO Jian : get buffer size from solver, combining everything of the solver
 	solver_.Init(sync_comm_.config_.GetDeviceId() );
 	solver_.SetDiffBuf(&(sync_comm_.gpu_buf_) );	
 	pthread_barrier_init(&data_ready_, NULL, 2);
+
+
+	std::cout << "check comm ptr address " << sync_comm_.nccl_comm_ << std::endl;
+
 }
 
-// template <typename Dtype>
-// Worker<Dtype>::Worker(const Worker<Dtype>& worker) : 
-// 	solver_(worker.solver_),
-// 	sync_comm_(worker.sync_comm_) {
-// 	solver_.SetDiffBuf(&(sync_comm_.gpu_buf_) );
-// 	pthread_barrier_init(&data_ready_, NULL, 2);
-// }
 
 template <typename Dtype>
 Worker<Dtype>::Worker(const Worker<Dtype>& worker) :
@@ -47,33 +44,47 @@ void Worker<Dtype>::SyncComputeLoop() {
 		// b_data: wait until data loading is done
 		pthread_barrier_wait(&(this->data_ready_) );
 
-		// do computation
-		solver_.Compute();
+		// // do computation
+		// solver_.Compute();
 
-#ifdef DEBUG
-	timer.stop();
-	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), "Compute in ");
-	timer.start();
-#endif
+// #ifdef DEBUG
+// 	timer.stop();
+// 	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), "Compute in ");
+// 	timer.start();
+// #endif
 
 		/**
 		 * do intra-group synchronization, the un-divided data is 
 		 * in sync_comm_.gpu_buf_. solver.diff_ is hooked onto this buffer.
 		 */
-		sync_comm_.SyncGroup(true);
+		
+		// TODO recover syncgroup
+		// sync_comm_.SyncGroup(true);
+		for (int j = 0; j < 100; j++) {
+			std::cout << "simulate reduce round " << j << " start " << std::endl;
+			usleep(sync_comm_.config_.device_id_ * 1000000);
+			sync_comm_.CliqueReduce();
+			std::cout << "simulate reduce round " << j << " finish " << std::endl;
+		}
+		
 
-		// solver combines the diff and model
-		solver_.UpdateModelFromDiff();
+		std::cout << "check sync group done" << std::endl;
 
-#ifdef TEST
-	Dtype* host_buf = new Dtype[this->solver_.buf_size_];
-	CUDA_CHECK(cudaMemcpy(host_buf, this->solver_.model_,
-		sizeof(Dtype) * this->solver_.buf_size_, cudaMemcpyDeviceToHost) );
-	test_res.push_back(host_buf[0] );
-	for (int i = 0; i < this->solver_.buf_size_; i++)
-		assert(host_buf[0] == host_buf[i] );
-	delete[] host_buf;
-#endif
+		// // solver combines the diff and model
+		// solver_.UpdateModelFromDiff();
+
+
+		// std::cout << "check update model done " << std::endl;
+
+// #ifdef TEST
+// 	Dtype* host_buf = new Dtype[this->solver_.buf_size_];
+// 	CUDA_CHECK(cudaMemcpy(host_buf, this->solver_.model_,
+// 		sizeof(Dtype) * this->solver_.buf_size_, cudaMemcpyDeviceToHost) );
+// 	test_res.push_back(host_buf[0] );
+// 	for (int i = 0; i < this->solver_.buf_size_; i++)
+// 		assert(host_buf[0] == host_buf[i] );
+// 	delete[] host_buf;
+// #endif
 
 #ifdef DEBUG
 	timer.stop();
@@ -121,19 +132,56 @@ void Worker<Dtype>::LoadDataLoop() {
 
 
 template <typename Dtype>
-void Worker<Dtype>::Run() {
+void Worker<Dtype>::Run(ncclComm_t* comm) {
 
-#ifdef DEBUG
-	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in run function");
-#endif
-	// spawn data loading thread 
-	std::thread data_load_thread(&Worker<Dtype>::LoadDataLoop, this);
+	std::cout << "in run func " << sync_comm_.config_.device_id_ << std::endl;
 
-	// spawn computing and group-sync thread
-	std::thread compute_sync_thread(&Worker<Dtype>::SyncComputeLoop, this);
+	int buf_size = 1000;
+	CUDA_CHECK(cudaSetDevice(sync_comm_.config_.device_id_) );
+	float* device_buf;
+	float* host_buf = (float*)malloc(sizeof(float) * buf_size);
+	CUDA_CHECK(cudaMalloc(&device_buf, sizeof(float) * buf_size) );
+	cudaStream_t* stream_comm = (cudaStream_t*)malloc(sizeof(cudaStream_t) );
+  CUDA_CHECK(cudaStreamCreate(stream_comm) );
 
-	data_load_thread.join();
-	compute_sync_thread.join();
+  std::cout << "create done " << std::endl;
+
+  std::cout << "compare ptr address " << comm << " " << sync_comm_.nccl_comm_ << std::endl;
+
+   for (int i = 0; i < 100; i++) {
+  	std::cout << "dev " << sync_comm_.config_.device_id_ << " iter " << i << " start reduce" << std::endl;
+  	usleep(sync_comm_.config_.device_id_ * 10000000);
+	  NCCL_CHECK(ncclReduce( (const void*)device_buf, (void*)device_buf, 
+	  	buf_size, ncclFloat, ncclSum, 0, 
+	  	*(sync_comm_.nccl_comm_), *stream_comm) );
+	  std::cout << "dev " << sync_comm_.config_.device_id_ << " iter " << i << " start waiting" << std::endl;
+	  cudaStreamSynchronize(*stream_comm);
+	}
+
+
+
+
+// 			for (int j = 0; j < 100; j++) {
+// 			std::cout << "simulate reduce round " << j << " start " << std::endl;
+// 			usleep(sync_comm_.config_.device_id_ * 1000000);
+// 			sync_comm_.CliqueReduce();
+// 			std::cout << "simulate reduce round " << j << " finish " << std::endl;
+// 		}
+
+// 	std::cout << "test done before real run" << std::endl;
+
+
+// #ifdef DEBUG
+// 	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in run function");
+// #endif
+// 	// spawn data loading thread 
+// 	std::thread data_load_thread(&Worker<Dtype>::LoadDataLoop, this);
+
+// 	// spawn computing and group-sync thread
+// 	std::thread compute_sync_thread(&Worker<Dtype>::SyncComputeLoop, this);
+
+// 	data_load_thread.join();
+// 	compute_sync_thread.join();
 }
 
 

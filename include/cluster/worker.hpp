@@ -55,7 +55,7 @@ public:
 	 * in the computation time for last iteration.
 	 */
 	void LoadDataLoop();
-	virtual void Run();
+	virtual void Run(ncclComm_t* comm);
 
 protected:
 	/* TODO Jian: add a real net solver */

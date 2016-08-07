@@ -22,9 +22,16 @@ void Entry(ncclUniqueId clique_id, ncclComm_t* comm, int dev_id) {
 
   std::cout << "check before reduce" << std::endl;
 
-  NCCL_CHECK(ncclReduce( (const void*)device_buf, (void*)device_buf, 
-  	buf_size, ncclFloat, ncclSum, 0, 
-  	*comm, *stream_comm) );
+
+  for (int i = 0; i < 100; i++) {
+  	std::cout << "dev " << dev_id << " iter " << i << " start reduce" << std::endl;
+  	usleep(dev_id * 10000000);
+	  NCCL_CHECK(ncclReduce( (const void*)device_buf, (void*)device_buf, 
+	  	buf_size, ncclFloat, ncclSum, 0, 
+	  	*comm, *stream_comm) );
+	  std::cout << "dev " << dev_id << " iter " << i << " start waiting" << std::endl;
+	  cudaStreamSynchronize(*stream_comm);
+	}
 
   std::cout << "check after reduce" << std::endl;
 
