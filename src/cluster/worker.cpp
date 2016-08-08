@@ -9,9 +9,9 @@ void Worker<Dtype>::Init() {
 	// TODO Jian : get buffer size from solver, combining everything of the solver
 	// solver_->Init(sync_comm_.config_.GetDeviceId() );
 	// solver_->SetDiffBuf(&(sync_comm_.gpu_buf_) );
-	int64_t buf_size = 2000000;
-	sync_comm_.Init(buf_size);	
-	pthread_barrier_init(&data_ready_, NULL, 2);
+	// int64_t buf_size = 2000000;
+	// sync_comm_.Init(buf_size);	
+	// pthread_barrier_init(&data_ready_, NULL, 2);
 }
 
 

@@ -50,11 +50,15 @@ int main() {
   NCCL_CHECK(ncclGetUniqueId(&clique_id) );
   NCCL_CHECK(ncclCommInitAll(nccl_comm, N_DEVICE_PER_PROC, &(gpu_ids[0] ) ) );
 
-  std::thread t1(Entry, clique_id, &(nccl_comm[0] ), 0);
-  std::thread t2(Entry, clique_id, &(nccl_comm[1] ), 1);
+  std::vector<std::thread> ts;
+  for (int i = 0; i < 2; i++)
+	  ts.push_back(std::thread (Entry, clique_id, &(nccl_comm[0] ), 0) );
+  // std::thread t2(Entry, clique_id, &(nccl_comm[1] ), 1);
 
-  t1.join();
-  t2.join();
+	for (int i = 0; i < 2; i++)
+		ts[i].join();
+  // t1.join();
+  // t2.join();
 
   MPI_Finalize();
 }

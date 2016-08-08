@@ -11,15 +11,15 @@
 
 template <typename Dtype>
 void InitAndRunWorker(pthread_barrier_t* init_barrier, Worker<Dtype>* worker) { 
-	worker->Init();
+	// worker->Init();
 	
-	std::cout << "init done " << std::endl;
+	// std::cout << "init done " << std::endl;
 
-	pthread_barrier_wait(init_barrier);
+	// pthread_barrier_wait(init_barrier);
 
 
 
-	worker->Run(); 
+	// worker->Run(); 
 };
 
 template <typename Dtype>
@@ -32,10 +32,10 @@ void Train() {
 	GetGpuIds(gpu_ids);
 
 	// check for macro settings from comm_utils.hpp
-	if (gpu_ids.size() != N_PROC_PER_MACHINE * N_DEVICE_PER_PROC) {
-		std::cout << "Not enough GPU on a machine!" << std::endl;
-		std::exit(1);
-	}
+	// if (gpu_ids.size() != N_PROC_PER_MACHINE * N_DEVICE_PER_PROC) {
+	// 	std::cout << "Not enough GPU on a machine!" << std::endl;
+	// 	std::exit(1);
+	// }
 	int mpi_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 	if (mpi_size % N_PROC_PER_MACHINE) {
@@ -55,8 +55,8 @@ void Train() {
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
 		// TODO Jian: add solvers
 		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id);
-		Worker<Dtype> worker(sync_config);
-		workers.push_back(worker);
+		// Worker<Dtype> worker(sync_config);
+		workers.push_back(Worker<Dtype> (sync_config) );
 	}
 
 	/**
@@ -70,6 +70,14 @@ void Train() {
 	std::vector<std::thread> worker_threads;
 	pthread_barrier_t worker_init;
 	pthread_barrier_init(&worker_init, NULL, workers.size() );
+
+		// SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id);
+		// Worker<Dtype> worker(sync_config);
+		// std::thread t(InitAndRunWorker<Dtype>, &worker_init, &(worker) );
+		// t.join();
+
+
+
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++)
 		worker_threads.push_back(std::thread (InitAndRunWorker<Dtype>, &worker_init, &(workers[i] ) ) );
 
