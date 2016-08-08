@@ -27,6 +27,7 @@ template<typename Dtype>
 class SyncCommConfig {
 public:
   // we use ncclComm_t** like we use ptr of ptr for cudaMalloc
+  SyncCommConfig() {};
   SyncCommConfig(int device_id, ncclUniqueId clique_id) :
     device_id_(device_id), clique_id_(clique_id) {
       int n_device;
@@ -59,6 +60,8 @@ public:
     is_clique_root_(config.is_clique_root_),
     is_group_root_(config.is_group_root_),
     mpi_rank_(config.mpi_rank_) {}
+  // we use default assignment operator
+  // operator=(const SyncCommConfig<Dtype>& config) {}
 
   /* access function*/
   // inline int64_t GetGpuBufferSize() { return gpu_buf_size_; }
@@ -99,6 +102,14 @@ friend class Worker<Dtype>;
 template<typename Dtype>
 class SyncCommunicator {
 public:
+  SyncCommunicator() :
+    nccl_comm_(NULL),
+    stream_comm_(NULL),
+    mpi_sync_comm_(NULL),
+    gpu_buf_(NULL),
+    mpi_sync_buf_(NULL),
+    gpu_buf_size_(0),
+    mpi_sync_buf_size_(0) { std::cout << "void sync comm constructor " << std::endl; }
   SyncCommunicator(const SyncCommConfig<Dtype>& config) : 
     config_(config),
     nccl_comm_(NULL),
@@ -108,7 +119,7 @@ public:
     mpi_sync_buf_(NULL),
     gpu_buf_size_(0),
     mpi_sync_buf_size_(0) { std::cout << "sync comm constructor 0 done " << std::endl; }
-  // SyncCommunicator(const SyncCommConfig<Dtype>& config, const int64_t buf_size);
+  // we use default assignment communicator
   SyncCommunicator(const SyncCommunicator<Dtype>& comm) :
     SyncCommunicator<Dtype> (comm.config_) { std::cout << "sync comm constructor 1 done " << std::endl; }
   ~SyncCommunicator() {
@@ -116,13 +127,18 @@ public:
       CUDA_CHECK(cudaFree(gpu_buf_) );
     if (mpi_sync_buf_ != NULL)
       delete mpi_sync_buf_;
-    // if (nccl_comm_ != NULL) {
-    //   nccl_comm_ = NULL;
-    //   ncclCommDestroy(*nccl_comm_);
-    // }
-    // if (stream_comm_ != NULL)
-    //   CUDA_CHECK(cudaStreamDestroy(*stream_comm_) );
+    if (nccl_comm_ != NULL) {
+      ncclCommDestroy(*nccl_comm_);
+      nccl_comm_ = NULL;
+    }
+    if (stream_comm_ != NULL) {
+      CUDA_CHECK(cudaStreamDestroy(*stream_comm_) );
+      stream_comm_ = NULL;
+    }
   }
+
+
+
   void Init(int64_t buf_size);
   /**
   * Building blocks for different synchronization setting

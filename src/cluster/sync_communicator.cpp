@@ -20,7 +20,6 @@ void SyncCommunicator<Dtype>::Init(int64_t buf_size) {
   CUDA_CHECK(cudaSetDevice(config_.device_id_) );
   CUDA_CHECK(cudaMalloc(&gpu_buf_, sizeof(Dtype) * gpu_buf_size_) );
   CUDA_CHECK(cudaMemset(gpu_buf_, 0, sizeof(Dtype) * gpu_buf_size_) );
-  nccl_comm_ = new ncclComm_t;
 
   int n_device;
   CUDA_CHECK(cudaGetDeviceCount(&n_device) );
@@ -32,9 +31,10 @@ void SyncCommunicator<Dtype>::Init(int64_t buf_size) {
 
   std::cout << "before separated init " << config_.n_dev_in_clique_ << " " << config_.clique_rank_ <<  std::endl;
   
+  nccl_comm_ = new ncclComm_t;
   CUDA_CHECK(cudaSetDevice(config_.device_id_) );
-  // NCCL_CHECK(ncclCommInitRank(nccl_comm_, config_.n_dev_in_clique_, 
-  //   config_.clique_id_, config_.clique_rank_) );
+  NCCL_CHECK(ncclCommInitRank(nccl_comm_, config_.n_dev_in_clique_, 
+    config_.clique_id_, config_.clique_rank_) );
 
   std::cout << "after separated init " << std::endl;
 

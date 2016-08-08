@@ -7,14 +7,11 @@
 template <typename Dtype>
 void Worker<Dtype>::Init() {
 	// TODO Jian : get buffer size from solver, combining everything of the solver
-	solver_.Init(sync_comm_.config_.GetDeviceId() );
-	solver_.SetDiffBuf(&(sync_comm_.gpu_buf_) );
-	sync_comm_.Init(solver_.buf_size_);	
+	// solver_->Init(sync_comm_.config_.GetDeviceId() );
+	// solver_->SetDiffBuf(&(sync_comm_.gpu_buf_) );
+	int64_t buf_size = 2000000;
+	sync_comm_.Init(buf_size);	
 	pthread_barrier_init(&data_ready_, NULL, 2);
-
-
-	std::cout << "Init worker check comm ptr address " << sync_comm_.nccl_comm_ << std::endl;
-
 }
 
 
@@ -29,7 +26,7 @@ void Worker<Dtype>::SyncComputeLoop() {
 	std::vector<Dtype> test_res;
 #endif
 
-	for (int i = 0; i < this->solver_.n_iter_; i++) {
+	for (int i = 0; i < this->solver_->n_iter_; i++) {
 
 #ifdef DEBUG
 	timer.start();
@@ -39,7 +36,7 @@ void Worker<Dtype>::SyncComputeLoop() {
 		pthread_barrier_wait(&(this->data_ready_) );
 
 		// // do computation
-		// solver_.Compute();
+		// solver_->Compute();
 
 // #ifdef DEBUG
 // 	timer.stop();
@@ -65,17 +62,17 @@ void Worker<Dtype>::SyncComputeLoop() {
 		std::cout << "check sync group done" << std::endl;
 
 		// // solver combines the diff and model
-		// solver_.UpdateModelFromDiff();
+		// solver_->UpdateModelFromDiff();
 
 
 		// std::cout << "check update model done " << std::endl;
 
 // #ifdef TEST
-// 	Dtype* host_buf = new Dtype[this->solver_.buf_size_];
-// 	CUDA_CHECK(cudaMemcpy(host_buf, this->solver_.model_,
-// 		sizeof(Dtype) * this->solver_.buf_size_, cudaMemcpyDeviceToHost) );
+// 	Dtype* host_buf = new Dtype[this->solver_->buf_size_];
+// 	CUDA_CHECK(cudaMemcpy(host_buf, this->solver_->model_,
+// 		sizeof(Dtype) * this->solver_->buf_size_, cudaMemcpyDeviceToHost) );
 // 	test_res.push_back(host_buf[0] );
-// 	for (int i = 0; i < this->solver_.buf_size_; i++)
+// 	for (int i = 0; i < this->solver_->buf_size_; i++)
 // 		assert(host_buf[0] == host_buf[i] );
 // 	delete[] host_buf;
 // #endif
@@ -111,7 +108,7 @@ void Worker<Dtype>::LoadDataLoop() {
 	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in LoadDataLoop function");
 #endif
 
-	for (int i = 0; i < solver_.n_iter_; i++) {
+	for (int i = 0; i < solver_->n_iter_; i++) {
 		// TODO Jian replace with real data loading
 		usleep(300000);
 
@@ -128,7 +125,7 @@ void Worker<Dtype>::LoadDataLoop() {
 template <typename Dtype>
 void Worker<Dtype>::Run() {
 
-	// 	std::cout << "check line 0" << std::endl;
+		std::cout << "check line 1" << std::endl;
 	// while(1);
 
 	std::cout << "in run func " << sync_comm_.config_.device_id_ << std::endl;

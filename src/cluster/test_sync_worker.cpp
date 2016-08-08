@@ -10,6 +10,19 @@
 
 
 template <typename Dtype>
+void InitAndRunWorker(pthread_barrier_t* init_barrier, Worker<Dtype>* worker) { 
+	worker->Init();
+	
+	std::cout << "init done " << std::endl;
+
+	pthread_barrier_wait(init_barrier);
+
+
+
+	worker->Run(); 
+};
+
+template <typename Dtype>
 void Train() {
 	/**
 	 * count the number of GPUs available from this process
@@ -36,36 +49,15 @@ void Train() {
 
 	std::vector<Worker<Dtype> > workers;
 	ncclUniqueId clique_id;
-	ncclComm_t* nccl_comm = new ncclComm_t[N_DEVICE_PER_PROC];
+	// ncclComm_t* nccl_comm = new ncclComm_t[N_DEVICE_PER_PROC];
   NCCL_CHECK(ncclGetUniqueId(&clique_id) );
   // NCCL_CHECK(ncclCommInitAll(nccl_comm, N_DEVICE_PER_PROC, &(gpu_ids[0] ) ) );
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
 		// TODO Jian: add solvers
-		
-		std::cout << "check create worker " << i << std::endl;
-
-
 		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id);
-
-		std::cout << "ckpt 0 " << std::endl;
-
-
 		Worker<Dtype> worker(sync_config);
-
-				std::cout << "ckpt 1 " << std::endl;
-
 		workers.push_back(worker);
-
-				std::cout << "ckpt 2 " << std::endl;
 	}
-
-	
-	
-	// SyncCommConfig<Dtype> sync_config0(gpu_ids[0], clique_id, nccl_comm + 0);
-	// Worker<Dtype> worker0(sync_config0);
-
-	// SyncCommConfig<Dtype> sync_config1(gpu_ids[1], clique_id, nccl_comm + 1);
-	// Worker<Dtype> worker1(sync_config1);
 
 	/**
 	 * As we have some communication group splitting, we need to 
@@ -74,41 +66,17 @@ void Train() {
 	 */
 	MPI_Barrier(MPI_COMM_WORLD);
 
-
 	// start spawn process and compute
-	// std::vector<std::thread> worker_threads;
+	std::vector<std::thread> worker_threads;
+	pthread_barrier_t worker_init;
+	pthread_barrier_init(&worker_init, NULL, workers.size() );
+	for (int i = 0; i < N_DEVICE_PER_PROC; i++)
+		worker_threads.push_back(std::thread (InitAndRunWorker<Dtype>, &worker_init, &(workers[i] ) ) );
 
+	for (int i = 0; i < N_DEVICE_PER_PROC; i++)
+		worker_threads[i].join();
 
-		std::cout << "check line 0" << std::endl;
-	// while(1);
-
-
-	// for (int i = 0; i < N_DEVICE_PER_PROC; i++)
-	// 	worker_threads.push_back(std::thread (&Worker<Dtype>::Run, workers[i] ) );
-
-	// for (int i = 0; i < N_DEVICE_PER_PROC; i++)
-	// 	worker_threads[i].join();
-	
-		workers[0].Run();
-
-	// std::thread t0(&Worker<Dtype>::Run, &(workers[0] ) );
-
-	// t0.join();
-
-
-	// std::cout << "check out line 0 " << std::endl;
-	
-	// std::thread thread0(&Worker<Dtype>::Run, worker0, &(nccl_comm[0] ) );
-	
-	// 	std::cout << "check out line 1 " << std::endl;
-
-	// std::thread thread1(&Worker<Dtype>::Run, worker1, &(nccl_comm[1] ) );
-
-
-	// thread0.join();
-	// thread1.join();
-
-	delete[] nccl_comm;
+	// delete[] nccl_comm;
 	std::cout << "async worker test passed!" << std::endl;
 }
 

@@ -38,10 +38,10 @@ template <typename Dtype>
 class Worker {
 public:
 	Worker(const SyncCommConfig<Dtype>& sync_comm_config) : 
-		solver_(20000000, 1), 
+		solver_(NULL), 
 		sync_comm_(sync_comm_config) { std::cout << "worker constructror 0 done" << std::endl; }
 	Worker(const Worker<Dtype>& worker) :
-		Worker<Dtype> (worker.sync_comm_.config_) { std::cout << "worker constructror 1 done" << std::endl; }
+		Worker<Dtype> (worker.sync_comm_.config_) { std::cout << " sync worker void copy construction " << std::endl; }
 	~Worker() { pthread_barrier_destroy(&data_ready_); }
 	void Init();
 	/** 
@@ -61,9 +61,12 @@ public:
 	void LoadDataLoop();
 	virtual void Run();
 
+
+	void Debug_info() { std::cout << "print ptr " << sync_comm_.mpi_sync_buf_ << " " << sync_comm_.gpu_buf_ << std::endl; };
+
 protected:
 	/* TODO Jian: add a real net solver */
-	Solver<Dtype> solver_;
+	Solver<Dtype>* solver_;
 
 	SyncCommunicator<Dtype> sync_comm_;
 

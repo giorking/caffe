@@ -22,7 +22,7 @@ class AsyncWorker;
 template <typename Dtype>
 class Solver {
 public:
-	Solver() : model_(NULL), diff_(NULL) {};
+	Solver() : model_(NULL), diff_(NULL) { cublasCreate(&cublas_handle_); };
 	Solver(int64_t buf_size, int n_iter) : model_(NULL), diff_(NULL) {
 		n_iter_ = n_iter;
 		buf_size_ = buf_size;
