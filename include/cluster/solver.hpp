@@ -44,7 +44,6 @@ public:
 		Solver(solver.buf_size_, solver.n_iter_) {}
 	~Solver() {
 		if (model_ != NULL)
-			// delete[] model_;
 			CUDA_CHECK(cudaFree(model_) );
 		cublasDestroy(cublas_handle_);
 	}

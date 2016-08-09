@@ -105,7 +105,7 @@ sync_worker: $(SYNCWORKEROBJ)
 	$(MPICXX) $(CFLAGS) $(PTHREADFLAGS) $(SYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(SYNCWORKEREXE)
 	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
 	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
-	mpirun --hostfile hosts.txt -np 1 ./$(SYNCWORKEREXE)
+	mpirun --hostfile hosts.txt -np 2 ./$(SYNCWORKEREXE)
 
 
 async_worker: $(ASYNCWORKEROBJ)
@@ -121,7 +121,7 @@ sync_worker_server: $(SYNCWORKEROBJ)
 	$(MPICXXSERVER) $(CFLAGS) $(PTHREADFLAGS) $(SYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(SYNCWORKEREXE)
 	scp ../../include/cluster/* zjian@192.168.0.132:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
 	scp ./* zjian@192.168.0.132:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
-	mpirun --hostfile hosts.txt -np 1 ./$(SYNCWORKEREXE)
+	mpirun --hostfile hosts.txt -np 2 ./$(SYNCWORKEREXE)
 
 
 async_worker_server: $(ASYNCWORKEROBJ)

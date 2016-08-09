@@ -11,15 +11,9 @@
 
 template <typename Dtype>
 void InitAndRunWorker(pthread_barrier_t* init_barrier, Worker<Dtype>* worker) { 
-	// worker->Init();
-	
-	// std::cout << "init done " << std::endl;
-
-	// pthread_barrier_wait(init_barrier);
-
-
-
-	// worker->Run(); 
+	worker->Init();
+	pthread_barrier_wait(init_barrier);
+	worker->Run(); 
 };
 
 template <typename Dtype>
@@ -32,10 +26,10 @@ void Train() {
 	GetGpuIds(gpu_ids);
 
 	// check for macro settings from comm_utils.hpp
-	// if (gpu_ids.size() != N_PROC_PER_MACHINE * N_DEVICE_PER_PROC) {
-	// 	std::cout << "Not enough GPU on a machine!" << std::endl;
-	// 	std::exit(1);
-	// }
+	if (gpu_ids.size() != N_PROC_PER_MACHINE * N_DEVICE_PER_PROC) {
+		std::cout << "Not enough GPU on a machine!" << std::endl;
+		std::exit(1);
+	}
 	int mpi_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 	if (mpi_size % N_PROC_PER_MACHINE) {
@@ -47,16 +41,15 @@ void Train() {
 		std::exit(1);
 	}
 
-	std::vector<Worker<Dtype> > workers;
+	std::vector<Worker<Dtype>* > workers(N_DEVICE_PER_PROC, NULL);
 	ncclUniqueId clique_id;
-	// ncclComm_t* nccl_comm = new ncclComm_t[N_DEVICE_PER_PROC];
   NCCL_CHECK(ncclGetUniqueId(&clique_id) );
-  // NCCL_CHECK(ncclCommInitAll(nccl_comm, N_DEVICE_PER_PROC, &(gpu_ids[0] ) ) );
+  pthread_barrier_t* process_barrier = new pthread_barrier_t;
+  pthread_barrier_init(process_barrier, NULL, N_DEVICE_PER_PROC);
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
 		// TODO Jian: add solvers
 		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id);
-		// Worker<Dtype> worker(sync_config);
-		workers.push_back(Worker<Dtype> (sync_config) );
+		workers[i] = new Worker<Dtype>(sync_config, process_barrier);
 	}
 
 	/**
@@ -67,24 +60,26 @@ void Train() {
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	// start spawn process and compute
-	std::vector<std::thread> worker_threads;
+	std::vector<std::thread*> worker_threads;
 	pthread_barrier_t worker_init;
 	pthread_barrier_init(&worker_init, NULL, workers.size() );
 
-		// SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id);
-		// Worker<Dtype> worker(sync_config);
-		// std::thread t(InitAndRunWorker<Dtype>, &worker_init, &(worker) );
-		// t.join();
-
-
-
+	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
+		std::thread* worker_thread = new std::thread(std::thread (InitAndRunWorker<Dtype>, &worker_init, workers[i] ) );
+		worker_threads.push_back(worker_thread);
+	}
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++)
-		worker_threads.push_back(std::thread (InitAndRunWorker<Dtype>, &worker_init, &(workers[i] ) ) );
+		worker_threads[i]->join();
 
-	for (int i = 0; i < N_DEVICE_PER_PROC; i++)
-		worker_threads[i].join();
+	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
+		delete worker_threads[i];
+		delete workers[i];
+	}
+	if (process_barrier != NULL) {
+		pthread_barrier_destroy(process_barrier);
+		process_barrier = NULL;
+	}
 
-	// delete[] nccl_comm;
 	std::cout << "async worker test passed!" << std::endl;
 }
 

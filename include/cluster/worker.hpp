@@ -37,12 +37,18 @@
 template <typename Dtype>
 class Worker {
 public:
-	Worker(const SyncCommConfig<Dtype>& sync_comm_config) : 
+	Worker(const SyncCommConfig<Dtype>& sync_comm_config, 
+		pthread_barrier_t* process_barrier) : 
 		solver_(NULL), 
-		sync_comm_(sync_comm_config) { std::cout << "worker constructror 0 done" << std::endl; }
+		sync_comm_(sync_comm_config, process_barrier) {}
 	Worker(const Worker<Dtype>& worker) :
-		Worker<Dtype> (worker.sync_comm_.config_) { std::cout << " sync worker void copy construction " << std::endl; }
-	~Worker() { pthread_barrier_destroy(&data_ready_); }
+		Worker<Dtype> (worker.sync_comm_.config_, 
+		worker.sync_comm_.process_barrier_) {}
+	~Worker() { 
+		if (solver_ != NULL)
+			delete solver_;
+		pthread_barrier_destroy(&data_ready_); 
+	}
 	void Init();
 	/** 
 	 * SyncComputeLoop takes care of the local computation,

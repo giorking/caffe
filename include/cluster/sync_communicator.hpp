@@ -109,8 +109,10 @@ public:
     gpu_buf_(NULL),
     mpi_sync_buf_(NULL),
     gpu_buf_size_(0),
-    mpi_sync_buf_size_(0) { std::cout << "void sync comm constructor " << std::endl; }
-  SyncCommunicator(const SyncCommConfig<Dtype>& config) : 
+    mpi_sync_buf_size_(0),
+    process_barrier_(NULL) {}
+  SyncCommunicator(const SyncCommConfig<Dtype>& config, 
+    pthread_barrier_t* process_barrier) : 
     config_(config),
     nccl_comm_(NULL),
     stream_comm_(NULL),
@@ -118,10 +120,11 @@ public:
     gpu_buf_(NULL),
     mpi_sync_buf_(NULL),
     gpu_buf_size_(0),
-    mpi_sync_buf_size_(0) { std::cout << "sync comm constructor 0 done " << std::endl; }
+    mpi_sync_buf_size_(0),
+    process_barrier_(process_barrier) {}
   // we use default assignment communicator
   SyncCommunicator(const SyncCommunicator<Dtype>& comm) :
-    SyncCommunicator<Dtype> (comm.config_) { std::cout << "sync comm constructor 1 done " << std::endl; }
+    SyncCommunicator<Dtype> (comm.config_, comm.process_barrier_) {}
   ~SyncCommunicator() {
     if (gpu_buf_ != NULL)
       CUDA_CHECK(cudaFree(gpu_buf_) );
@@ -136,7 +139,6 @@ public:
       stream_comm_ = NULL;
     }
   }
-
 
 
   void Init(int64_t buf_size);
@@ -176,6 +178,12 @@ private:
   /* inter-node intra-group communication using mpi */
   int64_t mpi_sync_buf_size_;
   Dtype* mpi_sync_buf_;
+
+  /**
+   * copy barrier from external code, regularize behavior of workers
+   * in the same process.
+   */
+  pthread_barrier_t* process_barrier_;
 
 friend class Worker<Dtype>;
 friend class AsyncWorker<Dtype>;

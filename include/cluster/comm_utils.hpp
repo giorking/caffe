@@ -24,11 +24,11 @@
 #include "nccl/src/nccl.h"
 
 #ifndef N_PROC_PER_GROUP
-#define N_PROC_PER_GROUP 1
+#define N_PROC_PER_GROUP 2
 #endif
 
 #ifndef N_MACHINE_PER_GROUP
-#define N_MACHINE_PER_GROUP 1 	
+#define N_MACHINE_PER_GROUP 2 	
 #endif
 
 #ifndef N_PROC_PER_MACHINE
@@ -36,7 +36,7 @@
 #endif
 
 #ifndef N_DEVICE_PER_PROC
-#define N_DEVICE_PER_PROC  2
+#define N_DEVICE_PER_PROC  1
 #endif
 
 #ifndef GROUP_ROOT_COMM_ID
