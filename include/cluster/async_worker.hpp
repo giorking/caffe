@@ -1,14 +1,24 @@
 #include "cluster/sync_communicator.hpp"
 #include "cluster/async_communicator.hpp"
+#include "cluster/async_mem.hpp"
 #include "cluster/worker.hpp"
 
 template <typename Dtype>
 class AsyncWorker : public Worker<Dtype> {
 public:
-	AsyncWorker(const SyncCommConfig<Dtype>& sync_comm_config_,
-		const AsyncCommConfig<Dtype>& async_comm_config_);
+	AsyncWorker(const SyncCommConfig<Dtype>& sync_comm_config,
+		pthread_barrier_t* process_barrier, 
+		const AsyncCommConfig<Dtype>& async_comm_config,
+		AsyncMem<Dtype>* async_mem) : 
+		Worker<Dtype> (sync_comm_config, process_barrier),
+		async_mem_(async_mem),
+		async_comm_(async_comm_config) {}
 	AsyncWorker(const AsyncWorker<Dtype>& worker) :
-		AsyncWorker<Dtype> (worker.sync_comm_.config_, worker.async_comm_.config_) {}
+		AsyncWorker<Dtype> (worker.sync_comm_.config_, 
+		worker.sync_comm_.process_barrier_, 
+		worker.async_comm_.config_,
+		worker.async_mem_) {}
+	void Init();
 	// commit model diff to async memory
 	void CommitDiffToAsyncMem(Dtype* diff_buf);
 	virtual void AsyncComputeLoop();
@@ -31,7 +41,7 @@ public:
 
 private:
 	/* async mpi communicator in addition to the synchronized one */
-	AsyncMem<Dtype> async_mem_;
+	AsyncMem<Dtype>* async_mem_;
 	AsyncCommunicator<Dtype> async_comm_;	
 
 };

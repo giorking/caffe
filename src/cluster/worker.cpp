@@ -14,6 +14,11 @@ void Worker<Dtype>::Init() {
 	solver_->SetDiffBuf(&(sync_comm_.gpu_buf_) );
 	sync_comm_.Init(buf_size);	
 	pthread_barrier_init(&data_ready_, NULL, 2);
+	// wait for initilization of other workers in the same process
+	pthread_barrier_wait(sync_comm_.process_barrier_);
+	// wait for MPI sync group to set up
+	if (sync_comm_.config_.is_clique_root_)
+		MPI_Barrier(*(sync_comm_.mpi_sync_comm_) );
 }
 
 
@@ -111,7 +116,14 @@ void Worker<Dtype>::LoadDataLoop() {
 		
 		pthread_barrier_wait(&data_ready_);
 
+#ifdef DEBUG
+	DEBUG_PRINT_RANK(MPI_COMM_WORLD, "Data loading done after!");
+#endif
+
 	}
+
+	// DEBUG
+	DEBUG_PRINT_RANK(MPI_COMM_WORLD, "data loading loop doen");
 }
 
 
@@ -121,6 +133,9 @@ void Worker<Dtype>::Run() {
 #ifdef DEBUG
 	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in run function");
 #endif
+
+	// inti first before spawn threads
+	Init();
 
 	// spawn data loading thread 
 	std::thread data_load_thread(&Worker<Dtype>::LoadDataLoop, this);

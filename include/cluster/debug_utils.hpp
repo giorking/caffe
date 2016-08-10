@@ -35,7 +35,14 @@
 
 #define DEBUG_PRINT_TIME(time_micro_sec, info) do { \
 	std::cout << info << " " << time_micro_sec << " milli seconds" << std::endl; \
-} while(0);
+} while(0)
+
+
+#define DEBUG_PRINT_DEVICE_ID(info) do { \
+	int debug_device_id; \
+	CUDA_CHECK(cudaGetDevice(&debug_device_id) ); \
+	std::cout << info << " device id: " << debug_device_id << std::endl; \
+} while(0)
 
 
 using namespace std;

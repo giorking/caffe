@@ -5,18 +5,19 @@
 
 
 template <typename Dtype>
-AsyncCommunicator<Dtype>::AsyncCommunicator(const AsyncCommConfig<Dtype>& config) :
-	config_(config), mem_(NULL), mpi_async_comm_(NULL), stop_(false) {
-	pthread_mutex_init(&stop_lock_, NULL);
+void AsyncCommunicator<Dtype>::Init(bool is_clique_root) {
+	// pthread_mutex_init(&stop_lock_, NULL);
 	pthread_barrier_init(&thread_barrier_, NULL, 2);
-	mpi_async_comm_ = new MPI_Comm;
-	/**
-	 * construct asynchronized "group" where each real synchronized group
-	 * contributes one machine. 
-	 */
-	MPI_Comm_split(MPI_COMM_WORLD, config_.mpi_rank_ % N_PROC_PER_GROUP, 
-		config_.mpi_rank_, mpi_async_comm_);
-	MPI_Comm_rank(*mpi_async_comm_, &(config_.mpi_async_rank_) );
+	if (is_clique_root) {
+		mpi_async_comm_ = new MPI_Comm;
+		/**
+		 * construct asynchronized "group" where each real synchronized group
+		 * contributes one proc. 
+		 */
+		MPI_Comm_split(MPI_COMM_WORLD, config_.mpi_rank_ % N_PROC_PER_GROUP, 
+			config_.mpi_rank_, mpi_async_comm_);
+		MPI_Comm_rank(*mpi_async_comm_, &(config_.mpi_async_rank_) );
+	}
 }
 
 template <typename Dtype>
@@ -25,23 +26,24 @@ void AsyncCommunicator<Dtype>::Destroy() {
 	if (mpi_async_comm_ != NULL)	
 		MPI_Comm_free(mpi_async_comm_);
 	mpi_async_comm_ = NULL;
+	pthread_barrier_destroy(&thread_barrier_);
 }
 
-template <typename Dtype>
-bool AsyncCommunicator<Dtype>::SetStop() {
-	pthread_mutex_lock(&stop_lock_);
-	stop_ = true;
-	pthread_mutex_unlock(&stop_lock_);
-}
+// template <typename Dtype>
+// bool AsyncCommunicator<Dtype>::SetStop() {
+// 	pthread_mutex_lock(&stop_lock_);
+// 	stop_ = true;
+// 	pthread_mutex_unlock(&stop_lock_);
+// }
 
 
-template <typename Dtype>
-bool AsyncCommunicator<Dtype>::CheckStop() {
-	pthread_mutex_lock(&stop_lock_);
-	bool to_stop = stop_;
-	pthread_mutex_unlock(&stop_lock_);
-	return to_stop;
-}
+// template <typename Dtype>
+// bool AsyncCommunicator<Dtype>::CheckStop() {
+// 	pthread_mutex_lock(&stop_lock_);
+// 	bool to_stop = stop_;
+// 	pthread_mutex_unlock(&stop_lock_);
+// 	return to_stop;
+// }
 
 
 template <typename Dtype>

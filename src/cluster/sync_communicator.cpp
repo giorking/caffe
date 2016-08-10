@@ -42,11 +42,20 @@ void SyncCommunicator<Dtype>::Init(int64_t buf_size) {
     MPI_Comm_split(MPI_COMM_WORLD, config_.group_id_, 
       config_.mpi_rank_, mpi_sync_comm_);
   }
+
+  // // DEBUG
+  // std::cout << "sync comm initilization done!" << std::endl;
+
+
 }
 
 
 template <typename Dtype>
 void SyncCommunicator<Dtype>::CliqueReduce() {
+
+  // // DEBUG
+  // DEBUG_PRINT_DEVICE_ID("before clique device id ");
+
   ncclDataType_t type = DtypeToNCCLDtype<Dtype>::type;
   pthread_barrier_wait(process_barrier_);
   if (config_.is_clique_root_) 
@@ -118,13 +127,24 @@ void SyncCommunicator<Dtype>::SyncGroup(bool do_broadcast) {
   // reduce within clique 
   CliqueReduce();
 
+  // // DEBUG
+  // std::cout << "syncGroup : reduce done " << std::endl;
+
   // inter ndoe communication 
   if (config_.is_clique_root_)
     InterMachineAllReduce();
 
+  // // DEBUG
+  // std::cout << "syncGroup : allreduce done " << std::endl;  
+
+
   // broadcast within clique 
-  if (do_broadcast)
+  if (do_broadcast) {
     CliqueBroadcast();
+
+    // // DEBUG
+    // std::cout << "syncGroup : broadcast done " << std::endl;      
+  }
 }
 
 

@@ -9,12 +9,12 @@
 #include "cluster/solver.hpp"
 
 
-template <typename Dtype>
-void InitAndRunWorker(pthread_barrier_t* init_barrier, Worker<Dtype>* worker) { 
-	worker->Init();
-	pthread_barrier_wait(init_barrier);
-	worker->Run(); 
-};
+// template <typename Dtype>
+// void InitAndRunWorker(pthread_barrier_t* init_barrier, Worker<Dtype>* worker) { 
+// 	worker->Init();
+// 	pthread_barrier_wait(init_barrier);
+// 	worker->Run(); 
+// };
 
 template <typename Dtype>
 void Train() {
@@ -61,11 +61,10 @@ void Train() {
 
 	// start spawn process and compute
 	std::vector<std::thread*> worker_threads;
-	pthread_barrier_t worker_init;
-	pthread_barrier_init(&worker_init, NULL, workers.size() );
 
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
-		std::thread* worker_thread = new std::thread(std::thread (InitAndRunWorker<Dtype>, &worker_init, workers[i] ) );
+		// std::thread* worker_thread = new std::thread(std::thread (InitAndRunWorker<Dtype>, &worker_init, workers[i] ) );
+		std::thread* worker_thread = new std::thread(std::thread (&Worker<Dtype>::Run, std::ref(*workers[i] ) ) );
 		worker_threads.push_back(worker_thread);
 	}
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++)

@@ -89,24 +89,24 @@ class AsyncWorker;
 template <typename Dtype>
 class AsyncMem {
 public:
-	AsyncMem(int n_thread, int64_t buf_size) : 
-		// sem_(1, n_thread),
+	AsyncMem() : 
+		buf_(NULL),
+		buf_size_(0),
+		n_thread_(0) {}
+	AsyncMem(int64_t buf_size, int n_thread) : 
 		buf_(NULL),
 		buf_size_(buf_size),
-		n_thread_(n_thread) {
-		pthread_mutex_init(&access_lock_, NULL);
-		pthread_barrier_init(&order_ctrl_, NULL, n_thread_);
-		buf_ = new Dtype [buf_size_];
-		memset(buf_, 0, sizeof(Dtype) * buf_size_);
-	}
+		n_thread_(n_thread) {}
 	AsyncMem(const AsyncMem<Dtype>& mem) :
-		AsyncMem(mem.n_thread_, mem.buf_size_) {}
+		AsyncMem(mem.buf_size_, mem.n_thread_) {}
 	~AsyncMem() {
-		pthread_mutex_destroy(&access_lock_);
-		pthread_barrier_destroy(&order_ctrl_);
+		pthread_mutex_destroy(&(this->access_lock_) );
+		if (n_thread_ != 0)
+			pthread_barrier_destroy(&(this->order_ctrl_) );
 		if (buf_ != NULL)
 			delete buf_;
 	}
+	void Init(int64_t buf_size, int n_thread);
 	// inline void SemRequest(bool prior, int thread_id) { sem_.Request(prior, thread_id); }
 	// inline void SemRelease() { sem_.Release(); }
 	/* lock and release mutex on buf */
@@ -116,10 +116,6 @@ public:
 	inline void ThreadBarrierWait() { pthread_barrier_wait(&order_ctrl_); }
 	Dtype* GetBuf() {return buf_; }
 	int64_t GetBufSize() { return buf_size_; }
-
-// #ifdef TEST
-// 	vector<bool> GetDebugOp() { return sem_.debug_op_; }
-// #endif
 
 private:
 	 // Semaphore designed for AsyncMem. Currently not in use  

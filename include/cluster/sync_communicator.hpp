@@ -152,9 +152,11 @@ public:
   virtual void InterMachineAllReduce();
   virtual void SyncGroup(bool do_broadcast);
   
+  void ProcessBarrierWait() { pthread_barrier_wait(process_barrier_); };
   /* access function */
   inline Dtype* GetGpuBuffer() { return gpu_buf_; }
   inline Dtype* GetMpiSyncBuffer() { return mpi_sync_buf_; }
+  inline int64_t GetMpiSyncBufferSize() { return mpi_sync_buf_size_; }
   inline bool IsCliqueRoot() { return config_.is_clique_root_; }
   // inline void AttachNcclComm(ncclComm_t* comm) { nccl_comm_ = comm; }
   

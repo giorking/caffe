@@ -76,21 +76,24 @@ friend class AsyncWorker<Dtype>;
 template <typename Dtype>
 class AsyncCommunicator {
 public:
-	AsyncCommunicator(const AsyncCommConfig<Dtype>& config);
+	AsyncCommunicator(const AsyncCommConfig<Dtype>& config) :
+	config_(config), mem_(NULL), mpi_async_comm_(NULL) {}
 	AsyncCommunicator(const AsyncCommunicator<Dtype>& comm) :
 		AsyncCommunicator<Dtype> (comm.config_) {}
-	~AsyncCommunicator() {
-		if (mpi_async_comm_ != NULL)
-			MPI_Comm_free(mpi_async_comm_);
-	}
+	// ~AsyncCommunicator() {
+	// 	if (mpi_async_comm_ != NULL)
+	// 		MPI_Comm_free(mpi_async_comm_);
+	// 	pthread_barrier_destroy(&thread_barrier_);
+	// }
+	void Init(bool is_clique_root);
 	/** 
 	 * as we need to free MPI_Comm which has to be before MPI_Finalize.
 	 * If we use deconstructor. The MPI_Comm_free will be after MPI_Finalize.
 	 */
 	void Destroy();
-	/* the communicator stops only after a full receive or send operation*/
-	bool SetStop();
-	bool CheckStop();
+	// // the communicator stops only after a full receive or send operation
+	// bool SetStop();
+	// bool CheckStop();
 	/** we only attach and detach async memory. 
 	 *  this class does not need to deal with memory 
 	 *  allocation and delete.
@@ -113,7 +116,7 @@ private:
 	 * to guarantee the completion of certain operations. currently
 	 * not in use.
 	 */
-	bool stop_;
+	// bool stop_;
 	pthread_mutex_t stop_lock_;
 	pthread_barrier_t thread_barrier_;
 

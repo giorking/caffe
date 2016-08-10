@@ -34,15 +34,20 @@ void Train() {
 		std::exit(1);
 	}
 
-	std::vector<AsyncWorker<Dtype> > workers;
+	std::vector<AsyncWorker<Dtype>* > workers(N_DEVICE_PER_PROC, NULL);
+	// on clique root worker, we have one comm thread and compute thread to acess it
 	ncclUniqueId clique_id;
   NCCL_CHECK(ncclGetUniqueId(&clique_id) );
+  pthread_barrier_t* process_barrier = new pthread_barrier_t;
+  pthread_barrier_init(process_barrier, NULL, N_DEVICE_PER_PROC);
+	// construct the memory shared by all the async workers in the current process
+	AsyncMem<Dtype> async_mem;
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
 		// TODO Jian: add solvers
 		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id);
 		AsyncCommConfig<Dtype> async_config;
-		AsyncWorker<Dtype> worker(sync_config, async_config);
-		workers.push_back(worker);
+		workers[i] = new AsyncWorker<Dtype>(sync_config, process_barrier, 
+			async_config, &async_mem);
 	}
 
 	/**
@@ -51,11 +56,31 @@ void Train() {
 	 * starting send too early.
 	 */
 	MPI_Barrier(MPI_COMM_WORLD);
-	// start spawn process and compute
-	for (int i = 0; i < N_DEVICE_PER_PROC; i++)
-		workers[i].Run();
 
-	std::cout << "async worker test passed!" << std::endl;
+	// start spawn process and compute
+	std::vector<std::thread*> worker_threads(N_DEVICE_PER_PROC, NULL);
+	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
+		// worker_threads[i] = new std::thread(std::thread (&AsyncWorker<Dtype>::Run, std::ref(*workers[i] ) ) );
+		std::thread* worker_thread = new std::thread(std::thread (&AsyncWorker<Dtype>::Run, std::ref(*workers[i] ) ) );
+		worker_threads[i] = worker_thread;
+	}
+
+	for (int i = 0; i < N_DEVICE_PER_PROC; i++)
+		worker_threads[i]->join();
+
+	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
+		if (worker_threads[i] != NULL)
+			delete worker_threads[i];
+		if (workers[i] != NULL)
+			delete workers[i];
+	}
+	if (process_barrier != NULL) {
+		pthread_barrier_destroy(process_barrier);
+		process_barrier = NULL;
+	}
+
+	std::cout << "Async worker test passed!" << std::endl;
+
 }
 
 
@@ -65,6 +90,7 @@ int main(int argc, char** argv) {
 	MPI_Init(NULL, NULL);
 
 	Train<float>();
-	
+
 	MPI_Finalize();
+	return 0;
 }

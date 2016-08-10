@@ -44,7 +44,7 @@ public:
 	Worker(const Worker<Dtype>& worker) :
 		Worker<Dtype> (worker.sync_comm_.config_, 
 		worker.sync_comm_.process_barrier_) {}
-	~Worker() { 
+	virtual ~Worker() { 
 		if (solver_ != NULL)
 			delete solver_;
 		pthread_barrier_destroy(&data_ready_); 
@@ -66,9 +66,6 @@ public:
 	 */
 	void LoadDataLoop();
 	virtual void Run();
-
-
-	void Debug_info() { std::cout << "print ptr " << sync_comm_.mpi_sync_buf_ << " " << sync_comm_.gpu_buf_ << std::endl; };
 
 protected:
 	/* TODO Jian: add a real net solver */

@@ -2,7 +2,14 @@
 // #include "cluster/debug_utils.hpp"
 #include "cluster/async_mem.hpp"
 
-
+template <typename Dtype>
+void AsyncMem<Dtype>::Init(int64_t buf_size, int n_thread) {
+	buf_size_ = buf_size;
+	buf_ = new Dtype [buf_size_];
+	memset(buf_, 0, sizeof(Dtype) * buf_size_);
+	pthread_mutex_init(&access_lock_, NULL);
+	pthread_barrier_init(&order_ctrl_, NULL, n_thread_);
+}
 // void SemAsyncMem::UpdateJobQueue(bool prior, int thread_id) {
 // 	/**
 // 	 * as we only have one thread post prior send task, 
