@@ -42,20 +42,11 @@ void SyncCommunicator<Dtype>::Init(int64_t buf_size) {
     MPI_Comm_split(MPI_COMM_WORLD, config_.group_id_, 
       config_.mpi_rank_, mpi_sync_comm_);
   }
-
-  // // DEBUG
-  // std::cout << "sync comm initilization done!" << std::endl;
-
-
 }
 
 
 template <typename Dtype>
 void SyncCommunicator<Dtype>::CliqueReduce() {
-
-  // // DEBUG
-  // DEBUG_PRINT_DEVICE_ID("before clique device id ");
-
   ncclDataType_t type = DtypeToNCCLDtype<Dtype>::type;
   pthread_barrier_wait(process_barrier_);
   if (config_.is_clique_root_) 
@@ -107,18 +98,10 @@ void SyncCommunicator<Dtype>::InterMachineAllReduce() {
     sizeof(Dtype) * gpu_buf_size_, cudaMemcpyDeviceToHost) );
   MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
 
-
-  std::ostringstream address0;
-  address0 << (void const *)mpi_sync_comm_;
-  // std:string name = address.str();
-  std::string s0 = " sync communicator addr " + address0.str();
-  DEBUG_PRINT_RANK_DEVICE_ID(MPI_COMM_WORLD, s0);
-  DEBUG_PRINT_RANK_DEVICE_ID(*mpi_sync_comm_, s0);
-
-  pthread_mutex_lock(mpi_mutex_);
+  // pthread_mutex_lock(mpi_mutex_);
   MPI_Allreduce(MPI_IN_PLACE, (void*)mpi_sync_buf_,
     gpu_buf_size_, type, MPI_SUM, *mpi_sync_comm_);
-  pthread_mutex_unlock(mpi_mutex_);
+  // pthread_mutex_unlock(mpi_mutex_);
 
   /* copy from CPU memory to GPU memory */
   CUDA_CHECK(cudaMemcpy(gpu_buf_, mpi_sync_buf_, 
@@ -137,24 +120,13 @@ void SyncCommunicator<Dtype>::SyncGroup(bool do_broadcast) {
   // reduce within clique 
   CliqueReduce();
 
-  // // DEBUG
-  // std::cout << "syncGroup : reduce done " << std::endl;
-
   // inter ndoe communication 
   if (config_.is_clique_root_)
     InterMachineAllReduce();
 
-  // // DEBUG
-  // std::cout << "syncGroup : allreduce done " << std::endl;  
-
-
   // broadcast within clique 
-  if (do_broadcast) {
+  if (do_broadcast)
     CliqueBroadcast();
-
-    // // DEBUG
-    // std::cout << "syncGroup : broadcast done " << std::endl;      
-  }
 }
 
 

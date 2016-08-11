@@ -48,11 +48,6 @@ void Train() {
 		// TODO Jian: add solvers
 		// E.g. there may be 8 gpus, but we optimize for NUMA where each proc have 4 device
 		int gpu_id = (mpi_rank % (gpu_ids.size() / N_DEVICE_PER_PROC) ) * N_DEVICE_PER_PROC + i;
-		
-		// DEBUG
-		std::cout << " test gpu_id" << std::endl;
-		DEBUG_PRINT_RANK(MPI_COMM_WORLD, gpu_id);
-
 		SyncCommConfig<Dtype> sync_config(gpu_id, clique_id);
 		AsyncCommConfig<Dtype> async_config;
 		workers[i] = new AsyncWorker<Dtype>(sync_config, process_barrier, 
@@ -96,7 +91,13 @@ void Train() {
 int main(int argc, char** argv) {
 	int rank;
 	int size;
-	MPI_Init(NULL, NULL);
+	int requested_thread_level = MPI_THREAD_MULTIPLE;
+	int provided_thread_level;
+	MPI_Init_thread(NULL, NULL, requested_thread_level, &provided_thread_level);
+	if (provided_thread_level != requested_thread_level) {
+		std::cout << "MPI multiple thread support is not provided!" << std::endl;
+		exit(1);
+	}
 
 	Train<float>();
 

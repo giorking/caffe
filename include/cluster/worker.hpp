@@ -75,10 +75,6 @@ protected:
 
 	// replace this barrier with a barrier from solver
 	pthread_barrier_t data_ready_;
-
-	// MPI mutex
-	pthread_mutex_t debug_mutex_;
-
 };
 
 

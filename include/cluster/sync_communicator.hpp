@@ -158,10 +158,6 @@ public:
   inline Dtype* GetMpiSyncBuffer() { return mpi_sync_buf_; }
   inline int64_t GetMpiSyncBufferSize() { return mpi_sync_buf_size_; }
   inline bool IsCliqueRoot() { return config_.is_clique_root_; }
-  // inline void AttachNcclComm(ncclComm_t* comm) { nccl_comm_ = comm; }
-  
-  // TODO Jian: remove 
-  pthread_mutex_t* mpi_mutex_;
   
 private:  
   /* configuration */

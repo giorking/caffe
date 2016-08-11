@@ -24,7 +24,7 @@
 #include "nccl/src/nccl.h"
 
 #ifndef N_PROC_PER_GROUP
-#define N_PROC_PER_GROUP 1
+#define N_PROC_PER_GROUP 2
 #endif
 
 #ifndef N_MACHINE_PER_GROUP
@@ -32,7 +32,7 @@
 #endif
 
 #ifndef N_PROC_PER_MACHINE
-#define N_PROC_PER_MACHINE 1
+#define N_PROC_PER_MACHINE 2
 #endif
 
 #ifndef N_DEVICE_PER_PROC

@@ -108,9 +108,6 @@ public:
 	AsyncMem<Dtype>* GetAsyncMem() { return mem_; }
 	void ThreadBarrierWait() { pthread_barrier_wait(&thread_barrier_); }
 
-	// TODO Jian Remove
-	pthread_mutex_t* mpi_mutex_;
-
 private:
 	AsyncCommConfig<Dtype> config_;
 	AsyncMem<Dtype>* mem_;

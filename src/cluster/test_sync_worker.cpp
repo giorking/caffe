@@ -24,14 +24,16 @@ void Train() {
 	 */
 	vector<int> gpu_ids;
 	GetGpuIds(gpu_ids);
+	int mpi_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+	int mpi_size;
+	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
 	// check for macro settings from comm_utils.hpp
 	if (gpu_ids.size() != N_PROC_PER_MACHINE * N_DEVICE_PER_PROC) {
 		std::cout << "Not enough GPU on a machine!" << std::endl;
 		std::exit(1);
 	}
-	int mpi_size;
-	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 	if (mpi_size % N_PROC_PER_MACHINE) {
 		std::cout << "Processes can not be equaly distributed to machines!" << std::endl;
 		std:exit(1);

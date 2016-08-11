@@ -19,13 +19,6 @@ void Worker<Dtype>::Init() {
 	// wait for MPI sync group to set up
 	if (sync_comm_.config_.is_clique_root_)
 		MPI_Barrier(*(sync_comm_.mpi_sync_comm_) );
-
-	std::cout << "check before mutex init" << std::endl;
-
-	pthread_mutex_init(&debug_mutex_, NULL);
-
-
-		std::cout << "check after mutex init" << std::endl;
 }
 
 
@@ -128,9 +121,6 @@ void Worker<Dtype>::LoadDataLoop() {
 #endif
 
 	}
-
-	// DEBUG
-	DEBUG_PRINT_RANK(MPI_COMM_WORLD, "data loading loop doen");
 }
 
 
