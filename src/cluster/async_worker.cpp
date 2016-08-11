@@ -14,6 +14,10 @@ void AsyncWorker<Dtype>::Init() {
 		async_mem_->Init(this->sync_comm_.mpi_sync_buf_size_, 2);
 		// wait for MPI async group finish intialization
 		MPI_Barrier(*(async_comm_.mpi_async_comm_) );
+		
+		// TODO Jian remove
+		this->sync_comm_.mpi_mutex_ = &(this->debug_mutex_);
+		this->async_comm_.mpi_mutex_ = &(this->debug_mutex_);
 	}
 }
 
@@ -69,28 +73,28 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 			// commit delta to mem_
 			this->CommitDiffToAsyncMem(this->sync_comm_.GetMpiSyncBuffer() );
 
-			// // DEBUG
-			// DEBUG_PRINT_DEVICE_ID("finish commit diff to async mem");
+			// DEBUG
+			DEBUG_PRINT_RANK_DEVICE_ID_ITER(MPI_COMM_WORLD, i, " COMP: finish commit diff to async mem");
 
-			// b2: wait until finish update delta to mem_
+			// b2: wait until finish update delta to mem_ before send
 			this->async_comm_.ThreadBarrierWait();
 		}
 
-		// // DEBUG
-		// DEBUG_PRINT_DEVICE_ID("start recv model buf size ");
+		// DEBUG
+		DEBUG_PRINT_RANK_DEVICE_ID_ITER(MPI_COMM_WORLD, i, " COMP: start recv model buf size ");
 
 		// read mem_ for compute after delta is committed on clique root worker
 		// pthread_barrier_wait(this->sync_comm_.process_barrier_);
 		this->sync_comm_.ProcessBarrierWait();
 
-		// // DEBUG
-		// DEBUG_PRINT_DEVICE_ID("start recv model after process barrier ");
+		// DEBUG
+		DEBUG_PRINT_RANK_DEVICE_ID_ITER(MPI_COMM_WORLD, i, " COMP: start recv model after process barrier ");
 
 		this->solver_->RecvModel(this->async_mem_->buf_, this->async_mem_->buf_size_);
 
 // // DEBUG
-// 		DEBUG_PRINT_DEVICE_ID("finish recv model");
-// 		std::cout << "finish recv model" << std::endl;
+		DEBUG_PRINT_RANK_DEVICE_ID_ITER(MPI_COMM_WORLD, i, " COMP: finish recv model");
+		// std::cout << "finish recv model" << std::endl;
 
 
 #ifdef TEST
@@ -103,13 +107,28 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 		delete[] host_buf;
 #endif
 
-		if (this->sync_comm_.IsCliqueRoot() )
+
+		// DEBUG
+		DEBUG_PRINT_RANK_DEVICE_ID_ITER(MPI_COMM_WORLD, i, " COMP: after test");
+
+
+		if (this->sync_comm_.IsCliqueRoot() ) {
+			// DEBUG
+			DEBUG_PRINT_RANK_DEVICE_ID_ITER(MPI_COMM_WORLD, i, " COMP: b3 wait before");			
+
 			// b3 : wait until finish read mem_ out before recv
 			this->async_comm_.ThreadBarrierWait();
 
-		// 	// DEBUG
-		// 	std::cout << "start compute model" << std::endl;
+			// DEBUG
+			DEBUG_PRINT_RANK_DEVICE_ID_ITER(MPI_COMM_WORLD, i, " COMP: b3 wait after");
+			usleep(1000000);
 
+		}
+
+			// DEBUG
+			DEBUG_PRINT_RANK_DEVICE_ID_ITER(MPI_COMM_WORLD, i, " COMP: start compute model");
+
+		usleep(1000000);
 
 		// b_data: wait until data loading is done 
 		pthread_barrier_wait(&(this->data_ready_) );
@@ -117,9 +136,9 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 		// do computation
 		this->solver_->Compute();
 
-		// // DEBUG
-		// DEBUG_PRINT_DEVICE_ID("finish compute model");
-
+		// DEBUG
+		DEBUG_PRINT_RANK_DEVICE_ID_ITER(MPI_COMM_WORLD, i, " COMP:  finish compute model");
+				usleep(1000000);
 		/**
 		 * do intra-group synchronization, we do not do braodcast after inter-machine
 		 * all reduce. As in async worker the new model will be copied from asyn_mem
@@ -127,8 +146,8 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 		 */
 		this->sync_comm_.SyncGroup(false);
 
-		// // DEBUG
-		// DEBUG_PRINT_DEVICE_ID("finish intragroup sync model");
+		// DEBUG
+		DEBUG_PRINT_RANK_DEVICE_ID_ITER(MPI_COMM_WORLD, i, " COMP:  finish intragroup sync model");
 
 
 		std::cout << "rank " << async_comm_.config_.mpi_rank_ << " round " 
@@ -137,7 +156,7 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 #ifdef DEBUG
 	timer.stop();
 	// DEBUG_PRINT_RANK(MPI_COMM_WORLD, "")
-	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), "Computing in ");
+	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), " COMP:  Computing in ");
 #endif
 
 	}

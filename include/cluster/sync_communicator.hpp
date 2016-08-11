@@ -30,25 +30,25 @@ public:
   SyncCommConfig() {};
   SyncCommConfig(int device_id, ncclUniqueId clique_id) :
     device_id_(device_id), clique_id_(clique_id) {
-      int n_device;
-      int n_proc;
-      CUDA_CHECK(cudaGetDeviceCount(&n_device) );
-      MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank_);
-      MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
-      assert(n_proc % N_PROC_PER_GROUP == 0);
-      group_id_ = mpi_rank_ / N_PROC_PER_GROUP;
-      // current we assume each process control a clique
-      n_dev_in_clique_= N_DEVICE_PER_PROC;
-      clique_rank_ = device_id_ % N_DEVICE_PER_PROC;
-      clique_root_rank_ = CLIQUE_ROOT_RANK;
-      if (clique_rank_ == clique_root_rank_)
-        is_clique_root_ = true;
-      else
-        is_clique_root_ = false;   
-      if (mpi_rank_ % N_PROC_PER_GROUP == 0 && is_clique_root_)
-        is_group_root_ = true;
-      else
-        is_group_root_ = false;
+    int n_device;
+    int n_proc;
+    CUDA_CHECK(cudaGetDeviceCount(&n_device) );
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank_);
+    MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
+    assert(n_proc % N_PROC_PER_GROUP == 0);
+    group_id_ = mpi_rank_ / N_PROC_PER_GROUP;
+    // current we assume each process control a clique
+    n_dev_in_clique_= N_DEVICE_PER_PROC;
+    clique_rank_ = device_id_ % N_DEVICE_PER_PROC;
+    clique_root_rank_ = CLIQUE_ROOT_RANK;
+    if (clique_rank_ == clique_root_rank_)
+      is_clique_root_ = true;
+    else
+      is_clique_root_ = false;   
+    if (mpi_rank_ % N_PROC_PER_GROUP == 0 && is_clique_root_)
+      is_group_root_ = true;
+    else
+      is_group_root_ = false;
   }
   SyncCommConfig(const SyncCommConfig<Dtype>& config) : 
     device_id_(config.device_id_), 
@@ -159,6 +159,9 @@ public:
   inline int64_t GetMpiSyncBufferSize() { return mpi_sync_buf_size_; }
   inline bool IsCliqueRoot() { return config_.is_clique_root_; }
   // inline void AttachNcclComm(ncclComm_t* comm) { nccl_comm_ = comm; }
+  
+  // TODO Jian: remove 
+  pthread_mutex_t* mpi_mutex_;
   
 private:  
   /* configuration */

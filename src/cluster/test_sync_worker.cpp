@@ -48,7 +48,8 @@ void Train() {
   pthread_barrier_init(process_barrier, NULL, N_DEVICE_PER_PROC);
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
 		// TODO Jian: add solvers
-		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id);
+		int gpu_id = (mpi_rank % (gpu_ids.size() / N_DEVICE_PER_PROC) ) * N_DEVICE_PER_PROC + i;
+		SyncCommConfig<Dtype> sync_config(gpu_id, clique_id);
 		workers[i] = new Worker<Dtype>(sync_config, process_barrier);
 	}
 

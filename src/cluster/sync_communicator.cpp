@@ -107,8 +107,18 @@ void SyncCommunicator<Dtype>::InterMachineAllReduce() {
     sizeof(Dtype) * gpu_buf_size_, cudaMemcpyDeviceToHost) );
   MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
 
+
+  std::ostringstream address0;
+  address0 << (void const *)mpi_sync_comm_;
+  // std:string name = address.str();
+  std::string s0 = " sync communicator addr " + address0.str();
+  DEBUG_PRINT_RANK_DEVICE_ID(MPI_COMM_WORLD, s0);
+  DEBUG_PRINT_RANK_DEVICE_ID(*mpi_sync_comm_, s0);
+
+  pthread_mutex_lock(mpi_mutex_);
   MPI_Allreduce(MPI_IN_PLACE, (void*)mpi_sync_buf_,
     gpu_buf_size_, type, MPI_SUM, *mpi_sync_comm_);
+  pthread_mutex_unlock(mpi_mutex_);
 
   /* copy from CPU memory to GPU memory */
   CUDA_CHECK(cudaMemcpy(gpu_buf_, mpi_sync_buf_, 

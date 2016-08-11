@@ -107,6 +107,10 @@ public:
 	MPI_Comm* GetMPIComm() { return mpi_async_comm_; }
 	AsyncMem<Dtype>* GetAsyncMem() { return mem_; }
 	void ThreadBarrierWait() { pthread_barrier_wait(&thread_barrier_); }
+
+	// TODO Jian Remove
+	pthread_mutex_t* mpi_mutex_;
+
 private:
 	AsyncCommConfig<Dtype> config_;
 	AsyncMem<Dtype>* mem_;
@@ -119,6 +123,7 @@ private:
 	// bool stop_;
 	pthread_mutex_t stop_lock_;
 	pthread_barrier_t thread_barrier_;
+
 
 friend class Worker<Dtype>;
 friend class AsyncWorker<Dtype>;

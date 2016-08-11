@@ -68,13 +68,17 @@ public:
 	virtual void Run();
 
 protected:
-	/* TODO Jian: add a real net solver */
+	// TODO Jian: add a real net solver 
 	Solver<Dtype>* solver_;
 
 	SyncCommunicator<Dtype> sync_comm_;
 
-	/* replace this barrier with a barrier from solver*/
+	// replace this barrier with a barrier from solver
 	pthread_barrier_t data_ready_;
+
+	// MPI mutex
+	pthread_mutex_t debug_mutex_;
+
 };
 
 

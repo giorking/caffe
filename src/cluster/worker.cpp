@@ -7,7 +7,7 @@
 template <typename Dtype>
 void Worker<Dtype>::Init() {
 	// TODO Jian : get buffer size from solver, combining everything of the solver
-	int64_t buf_size = 2000000;
+	int64_t buf_size = 20;
 	int64_t n_iter = 10;
 	solver_ = new Solver<Dtype>(buf_size, n_iter);
 	solver_->Init(sync_comm_.config_.GetDeviceId() );
@@ -19,6 +19,13 @@ void Worker<Dtype>::Init() {
 	// wait for MPI sync group to set up
 	if (sync_comm_.config_.is_clique_root_)
 		MPI_Barrier(*(sync_comm_.mpi_sync_comm_) );
+
+	std::cout << "check before mutex init" << std::endl;
+
+	pthread_mutex_init(&debug_mutex_, NULL);
+
+
+		std::cout << "check after mutex init" << std::endl;
 }
 
 

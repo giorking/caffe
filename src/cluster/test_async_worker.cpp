@@ -17,14 +17,16 @@ void Train() {
 	 */
 	vector<int> gpu_ids;
 	GetGpuIds(gpu_ids);
+	int mpi_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+	int mpi_size;
+	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
 	// check for macro settings from comm_utils.hpp
 	if (gpu_ids.size() != N_PROC_PER_MACHINE * N_DEVICE_PER_PROC) {
 		std::cout << "Not enough GPU on a machine!" << std::endl;
 		std::exit(1);
 	}
-	int mpi_size;
-	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 	if (mpi_size % N_PROC_PER_MACHINE) {
 		std::cout << "Processes can not be equaly distributed to machines!" << std::endl;
 		std:exit(1);
@@ -44,7 +46,14 @@ void Train() {
 	AsyncMem<Dtype> async_mem;
 	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
 		// TODO Jian: add solvers
-		SyncCommConfig<Dtype> sync_config(gpu_ids[i], clique_id);
+		// E.g. there may be 8 gpus, but we optimize for NUMA where each proc have 4 device
+		int gpu_id = (mpi_rank % (gpu_ids.size() / N_DEVICE_PER_PROC) ) * N_DEVICE_PER_PROC + i;
+		
+		// DEBUG
+		std::cout << " test gpu_id" << std::endl;
+		DEBUG_PRINT_RANK(MPI_COMM_WORLD, gpu_id);
+
+		SyncCommConfig<Dtype> sync_config(gpu_id, clique_id);
 		AsyncCommConfig<Dtype> async_config;
 		workers[i] = new AsyncWorker<Dtype>(sync_config, process_barrier, 
 			async_config, &async_mem);

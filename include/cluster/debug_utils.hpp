@@ -45,6 +45,29 @@
 } while(0)
 
 
+#define DEBUG_PRINT_RANK_DEVICE_ID(comm, info) do { \
+	int debug_mpi_rank; \
+	MPI_Comm_rank(comm, &debug_mpi_rank); \
+	int debug_device_id; \
+	CUDA_CHECK(cudaGetDevice(&debug_device_id) ); \
+	std::cout << "rank " << debug_mpi_rank \
+		<< " device id: " << debug_device_id \
+		<< " " << info << std::endl; \
+} while(0)
+
+
+#define DEBUG_PRINT_RANK_DEVICE_ID_ITER(comm, iter, info) do { \
+	int debug_mpi_rank; \
+	MPI_Comm_rank(comm, &debug_mpi_rank); \
+	int debug_device_id; \
+	CUDA_CHECK(cudaGetDevice(&debug_device_id) ); \
+	std::cout << "rank: " << debug_mpi_rank \
+		<< " device id: " << debug_device_id \
+		<< " iter: " << iter \
+		<< " " << info << std::endl; \
+} while(0)
+
+
 using namespace std;
 
 // void GetGpuIds(vector<int>& gpu_ids);
