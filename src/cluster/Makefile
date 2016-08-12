@@ -105,7 +105,7 @@ sync_worker: $(SYNCWORKEROBJ)
 	$(MPICXX) $(CFLAGS) $(PTHREADFLAGS) $(SYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(SYNCWORKEREXE)
 	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
 	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
-	mpirun --hostfile hosts.txt -np 2 ./$(SYNCWORKEREXE)
+	mpirun --hostfile hosts.txt -np 2 ./$(SYNCWORKEREXE) --n_device_per_proc 1 --n_machine_per_group 2 --n_proc_per_machine 1
 
 
 async_worker: $(ASYNCWORKEROBJ)
@@ -113,7 +113,7 @@ async_worker: $(ASYNCWORKEROBJ)
 	$(MPICXX) $(CFLAGS) $(PTHREADFLAGS) $(ASYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(ASYNCWORKEREXE)
 	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
 	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
-	mpirun --hostfile hosts.txt -np 2 ./$(ASYNCWORKEREXE)
+	mpirun --hostfile hosts.txt -np 2 ./$(ASYNCWORKEREXE) --n_device_per_proc 1 --n_machine_per_group 1 --n_proc_per_machine 1
 
 
 sync_worker_server: $(SYNCWORKEROBJ)
@@ -121,15 +121,16 @@ sync_worker_server: $(SYNCWORKEROBJ)
 	$(MPICXXSERVER) $(CFLAGS) $(PTHREADFLAGS) $(SYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(SYNCWORKEREXE)
 	scp ../../include/cluster/* zjian@192.168.0.132:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
 	scp ./* zjian@192.168.0.132:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
-	mpirun --hostfile hosts.txt -np 2 ./$(SYNCWORKEREXE)
+	mpirun --hostfile hosts.txt -np 2 ./$(SYNCWORKEREXE) --n_device_per_proc 2 --n_machine_per_group 2 --n_proc_per_machine 1
 
 
 async_worker_server: $(ASYNCWORKEROBJ)
 	@echo Linking
 	$(MPICXXSERVER) $(CFLAGS) $(PTHREADFLAGS) $(ASYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(ASYNCWORKEREXE)
-	scp ../../include/cluster/* zjian@192.168.0.131:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
-	scp ./* zjian@192.168.0.131:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
-	mpirun --hostfile hosts.txt -np 1 ./$(ASYNCWORKEREXE)
+	scp ../../include/cluster/* zjian@192.168.0.132:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
+	scp ./* zjian@192.168.0.132:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
+	mpirun --hostfile hosts.txt -np 4 ./$(ASYNCWORKEREXE) --n_device_per_proc 1 --n_machine_per_group 1 --n_proc_per_machine 2
+	mpirun --hostfile hosts.txt -np 2 ./$(ASYNCWORKEREXE) --n_device_per_proc 2 --n_machine_per_group 1 --n_proc_per_machine 1
 
 
 

@@ -1,5 +1,6 @@
 #include <thread>
 #include "cluster/timer.hpp"
+#include "cluster/comm_utils.hpp"
 #include "cluster/async_worker.hpp"
 
 
@@ -20,7 +21,7 @@ void AsyncWorker<Dtype>::Init() {
 
 template <typename Dtype>
 void AsyncWorker<Dtype>::CommitDiffToAsyncMem(Dtype* diff_buf) {
-	Dtype scale = N_PROC_PER_GROUP * N_DEVICE_PER_PROC;
+	Dtype scale = nProcPerGroup * nDevicePerProc;
 	// TODO Jian: replace this with more efficient blas implementation
 	for (int i = 0; i < async_mem_->buf_size_; i++)
 		async_mem_->buf_[i] += diff_buf[i] / scale;
@@ -45,35 +46,54 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 	std::vector<Dtype> test_res;
 #endif
 
-#ifdef DEBUG
+#ifdef TIMER
 	Timer timer;
 #endif 
 
 	for (int i = 0; i < this->solver_->n_iter_; i++) {
+		if (this->sync_comm_.IsCliqueRoot() ) {
 
-#ifdef DEBUG
-	timer.start();
+#ifdef TIMER
+			timer.start();
 #endif 
 
-		if (this->sync_comm_.IsCliqueRoot() ) {
 	 		// b1: wait until comm thread finish receive
 			this->async_comm_.ThreadBarrierWait();
 
-#ifdef DEBUG
+#ifdef TIMER
 			timer.stop();
-			DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), "Receive wait ");
-			timer.start();
+			DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer, " Async COMP: barrier 1 wait (Receive) in ");
 #endif
 
 			// commit delta to mem_
 			this->CommitDiffToAsyncMem(this->sync_comm_.GetMpiSyncBuffer() );
 
+#ifdef TIMER
+			timer.start();
+#endif 
+
 			// b2: wait until finish update delta to mem_ before send
 			this->async_comm_.ThreadBarrierWait();
+
+#ifdef TIMER
+			timer.stop();
+			DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer, " Async COMP: barrier 2 wait (mem_ before send) in   ");
+			usleep(100000);
+#endif
+
 		}
+
+#ifdef TIMER
+			timer.start();
+#endif
 
 		// read mem_ for compute after delta is committed on clique root worker
 		this->sync_comm_.ProcessBarrierWait();
+
+#ifdef TIMER
+			timer.stop();
+			DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer, " Async COMP: barrier wait (among process) in ");
+#endif
 
 		this->solver_->RecvModel(this->async_mem_->buf_, this->async_mem_->buf_size_);
 
@@ -87,9 +107,21 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 		delete[] host_buf;
 #endif
 
-		if (this->sync_comm_.IsCliqueRoot() )
+		if (this->sync_comm_.IsCliqueRoot() ) {
+
+#ifdef TIMER
+			timer.start();
+#endif
+
 			// b3 : wait until finish read mem_ out before recv
 			this->async_comm_.ThreadBarrierWait();
+
+#ifdef TIMER
+			timer.stop();
+			DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer, " Async COMP: barrier 3 wait (before receive) in ");
+#endif
+
+		}
 
 		// b_data: wait until data loading is done 
 		pthread_barrier_wait(&(this->data_ready_) );
@@ -103,14 +135,9 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 		 * directly to gpu memory.
 		 */
 		this->sync_comm_.SyncGroup(false);
-
-		std::cout << "rank " << async_comm_.config_.mpi_rank_ << " round " 
-			<< i << " done " << std::endl;
 		
-#ifdef DEBUG
-	timer.stop();
-	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), " COMP:  Computing in ");
-#endif
+		std::cout << "rank " << async_comm_.config_.mpi_rank_ << " round " 
+			<< i << " wait test done " << std::endl;
 
 	}
 
@@ -124,7 +151,7 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 	assert(test_res[0] == 0);
 	for (int i = 1; i < test_res.size(); i++) {
 		std::cout << "rank " << rank << " value " << test_res[i] << std::endl;
-		assert(test_res[i] == n_proc / N_PROC_PER_GROUP * (i - 1) + rank / N_PROC_PER_GROUP + 1);
+		assert(test_res[i] == n_proc / nProcPerGroup * (i - 1) + rank / nProcPerGroup + 1);
 	}
 #endif
 }
@@ -141,7 +168,7 @@ void AsyncWorker<Dtype>::AsyncCommLoop() {
 	CUDA_CHECK(cudaSetDevice(this->sync_comm_.config_.GetDeviceId() ) );
 
 	// last group need to initilize the ring based async computation
-	if (async_comm_.config_.mpi_rank_ / N_PROC_PER_GROUP 
+	if (async_comm_.config_.mpi_rank_ / nProcPerGroup 
 		== async_comm_.config_.n_group_ - 1) {
 		// TODO Jian: adapt to solver buffer
 		MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
@@ -159,7 +186,7 @@ void AsyncWorker<Dtype>::AsyncCommLoop() {
 	this->async_comm_.SendRecvLoop(this->solver_->n_iter_);
 
 	// first group need to receive the final model from ring-based computation
-	if (async_comm_.config_.mpi_rank_ / N_PROC_PER_GROUP == 0) {
+	if (async_comm_.config_.mpi_rank_ / nProcPerGroup == 0) {
 		// TODO Jian get the final result our for output
 		MPI_Status recv_status;
 		MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;

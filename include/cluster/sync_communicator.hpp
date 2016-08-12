@@ -35,17 +35,17 @@ public:
     CUDA_CHECK(cudaGetDeviceCount(&n_device) );
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank_);
     MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
-    assert(n_proc % N_PROC_PER_GROUP == 0);
-    group_id_ = mpi_rank_ / N_PROC_PER_GROUP;
+    assert(n_proc % nProcPerGroup == 0);
+    group_id_ = mpi_rank_ / nProcPerGroup;
     // current we assume each process control a clique
-    n_dev_in_clique_= N_DEVICE_PER_PROC;
-    clique_rank_ = device_id_ % N_DEVICE_PER_PROC;
+    n_dev_in_clique_= nDevicePerProc;
+    clique_rank_ = device_id_ % nDevicePerProc;
     clique_root_rank_ = CLIQUE_ROOT_RANK;
     if (clique_rank_ == clique_root_rank_)
       is_clique_root_ = true;
     else
       is_clique_root_ = false;   
-    if (mpi_rank_ % N_PROC_PER_GROUP == 0 && is_clique_root_)
+    if (mpi_rank_ % nProcPerGroup == 0 && is_clique_root_)
       is_group_root_ = true;
     else
       is_group_root_ = false;

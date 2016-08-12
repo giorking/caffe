@@ -1,6 +1,7 @@
 #include "cluster/async_mem.hpp"
 #include "cluster/async_communicator.hpp"
 #include "cluster/debug_utils.hpp"
+#include "cluster/comm_utils.hpp"
 #include "cluster/timer.hpp"
 
 
@@ -14,7 +15,7 @@ void AsyncCommunicator<Dtype>::Init(bool is_clique_root) {
 		 * construct asynchronized "group" where each real synchronized group
 		 * contributes one proc. 
 		 */
-		MPI_Comm_split(MPI_COMM_WORLD, config_.mpi_rank_ % N_PROC_PER_GROUP, 
+		MPI_Comm_split(MPI_COMM_WORLD, config_.mpi_rank_ % nProcPerGroup, 
 			config_.mpi_rank_, mpi_async_comm_);
 		MPI_Comm_rank(*mpi_async_comm_, &(config_.mpi_async_rank_) );
 	}
@@ -38,26 +39,25 @@ void AsyncCommunicator<Dtype>::SendRecvLoop(int n_iter) {
 	int async_rank = config_.mpi_async_rank_;
 	MPI_Status recv_status;
 
-#ifdef DEBUG
+#ifdef TIMER
 	Timer timer;
 #endif 
 
 	for (int iter = 0; iter < n_iter; iter++) {
 
-#ifdef DEBUG
+#ifdef TIMER
 	timer.start();
 #endif 
 
 		// Note config_.group_id_ + config_.n_group_ - 1 prevent result being -1 
-		// pthread_mutex_lock(mpi_mutex_);
 		MPI_Recv( (void*)mem_->buf_, mem_->buf_size_, type, 
 			(config_.group_id_ + config_.n_group_ - 1) % config_.n_group_, 
 			ASYNC_MSG, *mpi_async_comm_, &recv_status);
-		// pthread_mutex_unlock(mpi_mutex_);
 
-#ifdef DEBUG
+#ifdef TIMER
 	timer.stop();
-	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), " COMM:  Receive in ");
+	DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer, " Async COMM: Receive in ");
+	timer.start();
 #endif
 
 		// b1: wait until recv finishes.		
@@ -66,16 +66,18 @@ void AsyncCommunicator<Dtype>::SendRecvLoop(int n_iter) {
 		// b2: wait for the other thread to finish update delta to mem_
 		this->ThreadBarrierWait();
 
-#ifdef DEBUG
+#ifdef TIMER
+	timer.stop();
+	DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer, "  Async COMM: from receive to send in ");
 	timer.start();
 #endif 
 
 		MPI_Send( (void*)mem_->buf_, mem_->buf_size_, type, 
 			(config_.group_id_ + 1) % config_.n_group_, ASYNC_MSG, *mpi_async_comm_);
 
-#ifdef DEBUG
+#ifdef TIMER
 	timer.stop();
-	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), "Send in ");
+	DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer, "  Async COMM: Send in ");
 #endif
 
 		// b3: prevent MPI recv overlap with reading updated model for compute

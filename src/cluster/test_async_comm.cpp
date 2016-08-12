@@ -40,7 +40,7 @@ void InterGroupThreadEntry(AsyncCommunicator<Dtype>* comm, int n_iter) {
 	int size;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
-	int n_group = size / N_PROC_PER_GROUP;
+	int n_group = size / nProcPerGroup;
 	MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
 	// wait for communicator setup
 	comm->ThreadBarrierWait();
@@ -54,7 +54,7 @@ void InterGroupThreadEntry(AsyncCommunicator<Dtype>* comm, int n_iter) {
 	// wait for everything in new MPI group to setup
 	// MPI_Barrier(MPI_COMM_WORLD);
 
-	if (rank / N_PROC_PER_GROUP == n_group - 1)
+	if (rank / nProcPerGroup == n_group - 1)
 		MPI_Send(comp_buf, mem->GetBufSize(), type,
 			0, 0, *comm_ptr);
 	// prevent trigger send overlaps with recv thread in wait on the same buf. 
@@ -90,14 +90,14 @@ void InterGroupThreadEntry(AsyncCommunicator<Dtype>* comm, int n_iter) {
 	}
 
 	// verify the pattern of the result
-	assert(test_res[0] = rank / N_PROC_PER_GROUP + 1);
+	assert(test_res[0] = rank / nProcPerGroup + 1);
 	std::cout << "rank " << rank << " value " << test_res[0] << std::endl;
 	for (int i = 1; i < test_res.size(); i++) {
 		std::cout << "rank " << rank << " value " << test_res[i] << std::endl;
 		assert(test_res[i] - (test_res[i - 1] ) == n_group);
 	}
 
-	if (rank / N_PROC_PER_GROUP == 0) {
+	if (rank / nProcPerGroup == 0) {
 		MPI_Status recv_status;
 		MPI_Recv(comp_buf, mem->GetBufSize(), type,
 			n_group - 1, ASYNC_MSG, *comm_ptr, &recv_status);

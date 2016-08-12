@@ -26,9 +26,9 @@ public:
 		int n_proc;
 		MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank_);
 		MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
-		assert(n_proc % N_PROC_PER_GROUP == 0);
-		n_group_ = n_proc / N_PROC_PER_GROUP;
-		group_id_ = mpi_rank_ / N_PROC_PER_GROUP;
+		assert(n_proc % nProcPerGroup == 0);
+		n_group_ = n_proc / nProcPerGroup;
+		group_id_ = mpi_rank_ / nProcPerGroup;
 	}
 	AsyncCommConfig(const AsyncCommConfig<Dtype>& config) :
 		mpi_rank_(config.mpi_rank_),

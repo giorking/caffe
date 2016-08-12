@@ -4,18 +4,23 @@
 #include <mpi.h>
 #include <vector>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <cuda.h>
 #include <cuda_runtime.h>
 // #include "caffe/util/device_alternate.hpp"
 
-#ifndef DEBUG
-#define DEBUG
-#endif
+// #ifndef DEBUG
+// #define DEBUG
+// #endif
 
 #ifndef TEST
 #define TEST
 #endif
+
+// #ifndef TIMER
+// #define TIMER
+// #endif
 
 
 #define DEBUG_PRINT(content) do { \
@@ -61,10 +66,24 @@
 	MPI_Comm_rank(comm, &debug_mpi_rank); \
 	int debug_device_id; \
 	CUDA_CHECK(cudaGetDevice(&debug_device_id) ); \
-	std::cout << "rank: " << debug_mpi_rank \
+	std::ostringstream s; \
+	s << "rank: " << debug_mpi_rank \
 		<< " device id: " << debug_device_id \
-		<< " iter: " << iter \
-		<< " " << info << std::endl; \
+		<< " iter: " << iter << " " << info; \
+	std::cout << s.str() << std::endl << std::endl; \
+} while(0)
+
+
+#define DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(comm, timer, info) do { \
+	int debug_mpi_rank; \
+	MPI_Comm_rank(comm, &debug_mpi_rank); \
+	int debug_device_id; \
+	CUDA_CHECK(cudaGetDevice(&debug_device_id) ); \
+	std::ostringstream s; \
+	s << "rank: " << debug_mpi_rank \
+		<< " device id: " << debug_device_id \
+		<< info << " time: " << timer.getElapsedTimeInMilliSec() << " ms"; \
+	std::cout << s.str() << std::endl; \
 } while(0)
 
 

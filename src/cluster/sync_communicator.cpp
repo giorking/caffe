@@ -6,6 +6,7 @@
 #include "nccl/src/nccl.h"
 #include "cluster/debug_utils.hpp"
 #include "cluster/comm_utils.hpp"
+#include "cluster/timer.hpp"
 
 
 template <typename Dtype>
@@ -20,7 +21,7 @@ void SyncCommunicator<Dtype>::Init(int64_t buf_size) {
 
   int n_device;
   CUDA_CHECK(cudaGetDeviceCount(&n_device) );
-  if (n_device % N_DEVICE_PER_PROC != 0) {
+  if (n_device % nDevicePerProc != 0) {
     std::cout << "device on the machine should be " 
       << "fully devided into cliques(procs)" << std::endl;
     exit(0);
@@ -94,18 +95,39 @@ void SyncCommunicator<Dtype>::InterMachineAllReduce() {
       << " mpi buffer is smaller than gpu buffer." << std::endl;
   }
 
+#ifdef TIMER
+  Timer timer_outer;
+  timer_outer.start();
+#endif
+
   CUDA_CHECK(cudaMemcpy(mpi_sync_buf_, gpu_buf_, 
     sizeof(Dtype) * gpu_buf_size_, cudaMemcpyDeviceToHost) );
   MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
+
+#ifdef TIMER
+  Timer timer_inner;
+  timer_inner.start();
+#endif
 
   // pthread_mutex_lock(mpi_mutex_);
   MPI_Allreduce(MPI_IN_PLACE, (void*)mpi_sync_buf_,
     gpu_buf_size_, type, MPI_SUM, *mpi_sync_comm_);
   // pthread_mutex_unlock(mpi_mutex_);
 
+#ifdef TIMER
+  timer_inner.stop();
+  DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer_inner, " Sync COMM: MPI Allreduce for SyncGroup in ");
+#endif
+
   /* copy from CPU memory to GPU memory */
   CUDA_CHECK(cudaMemcpy(gpu_buf_, mpi_sync_buf_, 
     sizeof(Dtype) * gpu_buf_size_, cudaMemcpyHostToDevice) );
+
+#ifdef TIMER
+  timer_outer.stop();
+  DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer_inner, " Sync COMM: MPI Allreduce + memcpy for SyncGroup in ");
+#endif
+
 }
 
 

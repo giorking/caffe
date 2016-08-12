@@ -43,12 +43,12 @@ int main() {
 	MPI_Init(NULL, NULL);
 
 	ncclUniqueId clique_id;
-	ncclComm_t* nccl_comm = new ncclComm_t[N_DEVICE_PER_PROC];
+	ncclComm_t* nccl_comm = new ncclComm_t[nDevicePerProc];
 	std::vector<int> gpu_ids;
 	GetGpuIds(gpu_ids);
 
   NCCL_CHECK(ncclGetUniqueId(&clique_id) );
-  NCCL_CHECK(ncclCommInitAll(nccl_comm, N_DEVICE_PER_PROC, &(gpu_ids[0] ) ) );
+  NCCL_CHECK(ncclCommInitAll(nccl_comm, nDevicePerProc, &(gpu_ids[0] ) ) );
 
   std::vector<std::thread> ts;
   for (int i = 0; i < 2; i++)

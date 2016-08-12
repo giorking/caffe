@@ -7,7 +7,7 @@
 template <typename Dtype>
 void Worker<Dtype>::Init() {
 	// TODO Jian : get buffer size from solver, combining everything of the solver
-	int64_t buf_size = 20;
+	int64_t buf_size = 50000000;
 	int64_t n_iter = 10;
 	solver_ = new Solver<Dtype>(buf_size, n_iter);
 	solver_->Init(sync_comm_.config_.GetDeviceId() );
@@ -36,22 +36,11 @@ void Worker<Dtype>::SyncComputeLoop() {
 #endif
 
 	for (int i = 0; i < this->solver_->n_iter_; i++) {
-
-#ifdef DEBUG
-	timer.start();
-#endif 
-
 		// b_data: wait until data loading is done
 		pthread_barrier_wait(&(this->data_ready_) );
 
 		// do computation
 		solver_->Compute();
-
-#ifdef DEBUG
-	timer.stop();
-	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), "Compute in ");
-	timer.start();
-#endif
 
 		/**
 		 * do intra-group synchronization, the un-divided data is 
@@ -70,11 +59,6 @@ void Worker<Dtype>::SyncComputeLoop() {
 	for (int i = 0; i < this->solver_->buf_size_; i++)
 		assert(host_buf[0] == host_buf[i] );
 	delete[] host_buf;
-#endif
-
-#ifdef DEBUG
-	timer.stop();
-	DEBUG_PRINT_TIME(timer.getElapsedTimeInMilliSec(), "Sync in ");
 #endif
 
 		std::cout << "rank " << sync_comm_.config_.mpi_rank_ << " round " 

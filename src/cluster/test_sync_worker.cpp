@@ -9,15 +9,25 @@
 #include "cluster/solver.hpp"
 
 
-// template <typename Dtype>
-// void InitAndRunWorker(pthread_barrier_t* init_barrier, Worker<Dtype>* worker) { 
-// 	worker->Init();
-// 	pthread_barrier_wait(init_barrier);
-// 	worker->Run(); 
-// };
+// initilize global variable
+// the number of processes in a synchronized group.
+int nProcPerGroup;
+
+// the number of machines in a synchronized group.
+int nMachinePerGroup;
+
+/**
+ * the number of process on a single machine. Derived from
+ * nProcPerGroup and nMachinePerGroup.
+ */
+int nProcPerMachine;
+
+// the number of gpu cards each process has. 
+int nDevicePerProc;
+
 
 template <typename Dtype>
-void Train() {
+void Train(int argc, char** argv) {
 	/**
 	 * count the number of GPUs available from this process
 	 * and init all the workers.
@@ -28,29 +38,32 @@ void Train() {
 	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 	int mpi_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+	
+	// parse system setting environment
+	ParseCmdArg(argc, argv);
 
 	// check for macro settings from comm_utils.hpp
-	if (gpu_ids.size() != N_PROC_PER_MACHINE * N_DEVICE_PER_PROC) {
+	if (gpu_ids.size() != nProcPerMachine * nDevicePerProc) {
 		std::cout << "Not enough GPU on a machine!" << std::endl;
 		std::exit(1);
 	}
-	if (mpi_size % N_PROC_PER_MACHINE) {
+	if (mpi_size % nProcPerMachine) {
 		std::cout << "Processes can not be equaly distributed to machines!" << std::endl;
 		std:exit(1);
 	}
-	if (mpi_size / N_PROC_PER_GROUP != 1) {
+	if (mpi_size / nProcPerGroup != 1) {
 		std::cout << "Need a single group to test sync worker!" << std::endl;
 		std::exit(1);
 	}
 
-	std::vector<Worker<Dtype>* > workers(N_DEVICE_PER_PROC, NULL);
+	std::vector<Worker<Dtype>* > workers(nDevicePerProc, NULL);
 	ncclUniqueId clique_id;
   NCCL_CHECK(ncclGetUniqueId(&clique_id) );
   pthread_barrier_t* process_barrier = new pthread_barrier_t;
-  pthread_barrier_init(process_barrier, NULL, N_DEVICE_PER_PROC);
-	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
+  pthread_barrier_init(process_barrier, NULL, nDevicePerProc);
+	for (int i = 0; i < nDevicePerProc; i++) {
 		// TODO Jian: add solvers
-		int gpu_id = (mpi_rank % (gpu_ids.size() / N_DEVICE_PER_PROC) ) * N_DEVICE_PER_PROC + i;
+		int gpu_id = (mpi_rank % (gpu_ids.size() / nDevicePerProc) ) * nDevicePerProc + i;
 		SyncCommConfig<Dtype> sync_config(gpu_id, clique_id);
 		workers[i] = new Worker<Dtype>(sync_config, process_barrier);
 	}
@@ -65,15 +78,15 @@ void Train() {
 	// start spawn process and compute
 	std::vector<std::thread*> worker_threads;
 
-	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
+	for (int i = 0; i < nDevicePerProc; i++) {
 		// std::thread* worker_thread = new std::thread(std::thread (InitAndRunWorker<Dtype>, &worker_init, workers[i] ) );
 		std::thread* worker_thread = new std::thread(std::thread (&Worker<Dtype>::Run, std::ref(*workers[i] ) ) );
 		worker_threads.push_back(worker_thread);
 	}
-	for (int i = 0; i < N_DEVICE_PER_PROC; i++)
+	for (int i = 0; i < nDevicePerProc; i++)
 		worker_threads[i]->join();
 
-	for (int i = 0; i < N_DEVICE_PER_PROC; i++) {
+	for (int i = 0; i < nDevicePerProc; i++) {
 		delete worker_threads[i];
 		delete workers[i];
 	}
@@ -91,7 +104,7 @@ int main(int argc, char** argv) {
 	int size;
 	MPI_Init(NULL, NULL);
 
-	Train<float>();
+	Train<float>(argc, argv);
 
 	std::cout << "start finalize" << std::endl;
 	
