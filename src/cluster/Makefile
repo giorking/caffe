@@ -129,8 +129,8 @@ async_worker_server: $(ASYNCWORKEROBJ)
 	$(MPICXXSERVER) $(CFLAGS) $(PTHREADFLAGS) $(ASYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(ASYNCWORKEREXE)
 	scp ../../include/cluster/* zjian@192.168.0.132:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
 	scp ./* zjian@192.168.0.132:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
-	mpirun --hostfile hosts.txt -np 4 ./$(ASYNCWORKEREXE) --n_device_per_proc 1 --n_machine_per_group 1 --n_proc_per_machine 2
-	mpirun --hostfile hosts.txt -np 2 ./$(ASYNCWORKEREXE) --n_device_per_proc 2 --n_machine_per_group 1 --n_proc_per_machine 1
+	# mpirun --hostfile hosts.txt -np 4 ./$(ASYNCWORKEREXE) --n_device_per_proc 1 --n_machine_per_group 1 --n_proc_per_machine 2 | tee time_log.txt
+	# mpirun --hostfile hosts.txt -np 2 ./$(ASYNCWORKEREXE) --n_device_per_proc 2 --n_machine_per_group 1 --n_proc_per_machine 1
 
 
 

@@ -78,7 +78,6 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 #ifdef TIMER
 			timer.stop();
 			DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer, " Async COMP: barrier 2 wait (mem_ before send) in   ");
-			usleep(100000);
 #endif
 
 		}

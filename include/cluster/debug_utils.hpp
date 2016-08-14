@@ -14,13 +14,13 @@
 // #define DEBUG
 // #endif
 
-#ifndef TEST
-#define TEST
-#endif
-
-// #ifndef TIMER
-// #define TIMER
+// #ifndef TEST
+// #define TEST
 // #endif
+
+#ifndef TIMER
+#define TIMER
+#endif
 
 
 #define DEBUG_PRINT(content) do { \
