@@ -126,8 +126,9 @@ public:
   SyncCommunicator(const SyncCommunicator<Dtype>& comm) :
     SyncCommunicator<Dtype> (comm.config_, comm.process_barrier_) {}
   ~SyncCommunicator() {
-    if (gpu_buf_ != NULL)
-      CUDA_CHECK(cudaFree(gpu_buf_) );
+    // if (gpu_buf_ != NULL)
+    //   CUDA_CHECK(cudaFree(gpu_buf_) );
+    gpu_buf_ = NULL;
     if (mpi_sync_buf_ != NULL)
       delete mpi_sync_buf_;
     if (nccl_comm_ != NULL) {
@@ -160,7 +161,7 @@ public:
   inline bool IsCliqueRoot() { return config_.is_clique_root_; }
   
 private:  
-  /* configuration */
+  // configuration 
   SyncCommConfig<Dtype> config_;
   /**
    * communicator for local clique
@@ -169,14 +170,14 @@ private:
   ncclComm_t* nccl_comm_;
   cudaStream_t* stream_comm_;
 
-  /* communicator for intra/inter-group multi-node communication*/
+  // communicator for intra/inter-group multi-node communication
   MPI_Comm* mpi_sync_comm_;
 
-  /* buffer for intra-node gpu communication */
+  // buffer for intra-node gpu communication. We only attach gpu memory, never allocate here
   int64_t gpu_buf_size_;
   Dtype* gpu_buf_;
 
-  /* inter-node intra-group communication using mpi */
+  // inter-node intra-group communication using mpi 
   int64_t mpi_sync_buf_size_;
   Dtype* mpi_sync_buf_;
 

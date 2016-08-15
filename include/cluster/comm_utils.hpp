@@ -105,4 +105,9 @@ void GetGpuIds(std::vector<int>& gpu_ids);
 void ParseCmdArg(int argc, char** argv);
 
 
+// setup sync workers 
+template <typename Dtype>
+void RunSyncWorkers(caffe::Solver<Dtype>* solver_template);
+
+
 #endif // end of COMM_UTILS_HPP_

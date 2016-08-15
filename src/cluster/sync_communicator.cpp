@@ -10,14 +10,17 @@
 
 
 template <typename Dtype>
-void SyncCommunicator<Dtype>::Init(int64_t buf_size) {
+void SyncCommunicator<Dtype>::Init(int64_t buf_size, Dtype* external_gpu_buf) {
   // set buffer size
   gpu_buf_size_ = buf_size;
   mpi_sync_buf_size_ = buf_size;
   /* initialize communication on GPU*/  
   CUDA_CHECK(cudaSetDevice(config_.device_id_) );
-  CUDA_CHECK(cudaMalloc(&gpu_buf_, sizeof(Dtype) * gpu_buf_size_) );
-  CUDA_CHECK(cudaMemset(gpu_buf_, 0, sizeof(Dtype) * gpu_buf_size_) );
+  
+  gpu_buf_ = external_gpu_buf;
+  // Old memory allocation
+  // CUDA_CHECK(cudaMalloc(&gpu_buf_, sizeof(Dtype) * gpu_buf_size_) );
+  // CUDA_CHECK(cudaMemset(gpu_buf_, 0, sizeof(Dtype) * gpu_buf_size_) );
 
   int n_device;
   CUDA_CHECK(cudaGetDeviceCount(&n_device) );

@@ -40,16 +40,22 @@ public:
 	Worker(const SyncCommConfig<Dtype>& sync_comm_config, 
 		pthread_barrier_t* process_barrier) : 
 		solver_(NULL), 
-		sync_comm_(sync_comm_config, process_barrier) {}
+		sync_comm_(sync_comm_config, process_barrier),
+		model_(NULL),
+		diff_(NULL), 
+		buf_size_(0) {}
 	Worker(const Worker<Dtype>& worker) :
 		Worker<Dtype> (worker.sync_comm_.config_, 
 		worker.sync_comm_.process_barrier_) {}
-	virtual ~Worker() { 
+	virtual ~Worker() {
+		delete[] model_; 
+		delete[] diff_;
 		if (solver_ != NULL)
 			delete solver_;
 		pthread_barrier_destroy(&data_ready_); 
 	}
 	void Init();
+	void ReplaceSolverBuffer();
 	/** 
 	 * SyncComputeLoop takes care of the local computation,
 	 * single-node multi-GPU communication and and multi-node
@@ -65,7 +71,7 @@ public:
 	 * in the computation time for last iteration.
 	 */
 	void LoadDataLoop();
-	virtual void Run();
+	virtual void Run(const caffe::Solver<float>* solver_template);
 
 protected:
 	// TODO Jian: add a real net solver 
@@ -75,6 +81,12 @@ protected:
 
 	// replace this barrier with a barrier from solver
 	pthread_barrier_t data_ready_;
+
+	// GPU buffers
+	Dtype* model_;
+	Dtype* diff_;
+	int64_t buf_size_;
+
 };
 
 

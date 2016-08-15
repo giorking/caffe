@@ -129,9 +129,7 @@ void AsyncWorker<Dtype>::AsyncComputeLoop() {
 		this->solver_->Compute();
 
 		/**
-		 * do intra-group synchronization, we do not do braodcast after inter-machine
-		 * all reduce. As in async worker the new model will be copied from asyn_mem
-		 * directly to gpu memory.
+                                                                                                                                                            
 		 */
 		this->sync_comm_.SyncGroup(false);
 		
