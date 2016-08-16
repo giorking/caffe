@@ -142,7 +142,7 @@ public:
   }
 
 
-  void Init(int64_t buf_size);
+  void Init(int64_t buf_size, Dtype* external_gpu_buf);
   /**
   * Building blocks for different synchronization setting
   * Group may include gpus on multiple nodes. We call the 

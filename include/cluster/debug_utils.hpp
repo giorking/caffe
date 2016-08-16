@@ -87,12 +87,16 @@
 } while(0)
 
 
-using namespace std;
+void GetGpuIds(std::vector<int>& gpu_ids);
 
-// void GetGpuIds(vector<int>& gpu_ids);
 
 template <typename Dtype>
-void DisplayGpuArray(Dtype* GpuArray, int64_t n_entry_to_display, string& str);
+void DisplayGpuArray(Dtype* GpuArray, int64_t n_entry_to_display, std::string& str);
+
+
+
+
+
 
 // template void DisplayGpuArray<float>(float* GpuArray, int64_t n_entry_to_display, string& str);
 // template void DisplayGpuArray<double>(double* GpuArray, int64_t n_entry_to_display, string& str);

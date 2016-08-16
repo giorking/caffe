@@ -4,7 +4,8 @@
 #include "cluster/async_mem.hpp"
 #include "cluster/sync_communicator.hpp"
 #include "cluster/async_communicator.hpp"
-#include "cluster/solver.hpp"
+// #include "cluster/solver.hpp"
+#include "caffe/solver.hpp"
 
 
 /**
@@ -54,8 +55,10 @@ public:
 			delete solver_;
 		pthread_barrier_destroy(&data_ready_); 
 	}
-	void Init();
-	void ReplaceSolverBuffer();
+	void Init(caffe::Solver<Dtype>* solver_template);
+	void ReplaceSolverBuffer(const std::vector<caffe::Blob<Dtype>*>& blobs);
+	void CopySolverBuffer(const std::vector<caffe::Blob<Dtype>*>& blobs_src);
+	int64_t GetModelSize(const std::vector<caffe::Blob<Dtype>*>& blobs);
 	/** 
 	 * SyncComputeLoop takes care of the local computation,
 	 * single-node multi-GPU communication and and multi-node
@@ -71,11 +74,11 @@ public:
 	 * in the computation time for last iteration.
 	 */
 	void LoadDataLoop();
-	virtual void Run(const caffe::Solver<float>* solver_template);
+	virtual void Run(caffe::Solver<Dtype>* solver_template);
 
 protected:
 	// TODO Jian: add a real net solver 
-	Solver<Dtype>* solver_;
+	caffe::Solver<Dtype>* solver_;
 
 	SyncCommunicator<Dtype> sync_comm_;
 
@@ -91,9 +94,9 @@ protected:
 
 
 
-// TODO Jian remove these instantiation
-template class Solver<float>;
-template class Solver<double>;
+// // TODO Jian remove these instantiation
+// template class Solver<float>;
+// template class Solver<double>;
 
 
 #endif // end of WORKER_H

@@ -2,7 +2,9 @@
 #include "cluster/worker.hpp"
 #include "cluster/debug_utils.hpp"
 #include "cluster/timer.hpp"
-#include "caffe/parallel.hpp"
+#include "caffe/caffe.hpp"
+// #include "caffe/parallel.hpp"
+// #include "caffe/common.hpp"
 
 
 template <typename Dtype>
@@ -15,21 +17,23 @@ void Worker<Dtype>::Init(caffe::Solver<Dtype>* solver_template) {
 	// solver_->Init(sync_comm_.config_.GetDeviceId() );
 	// solver_->SetDiffBuf(&(sync_comm_.gpu_buf_) );
 	
-	Caffe::set_root_solver(false);
-	solver_ = new caffe::Solver<Dtype>(solver_template->param(), solver_template);
-	Caffe::set_root_solver(true);
+	caffe::Caffe::set_root_solver(false);
+	solver_ = new caffe::WorkerSolver<Dtype>(solver_template->param(), solver_template);
+	// caffe::Caffe::set_root_solver(true);
 
-	const vector<Blob<Dtype>*>& blobs =
+	const std::vector<caffe::Blob<Dtype>*>& blobs_dest =
       solver_->net()->learnable_params();
-	// total_size is a function from caffe:parallel.cpp
-	buf_size_ = total_size(blobs);
+  const std::vector<caffe::Blob<Dtype>*>& blobs_src =
+      solver_template->net()->learnable_params();    
+	// get model size from external blob list and update buf_size_
+	buf_size_ = GetModelSize(blobs_src);
 	CUDA_CHECK(cudaMalloc(&model_, sizeof(Dtype) * buf_size_) );
 	CUDA_CHECK(cudaMalloc(&diff_, sizeof(Dtype) * buf_size_) );
-	ReplaceSolverBuffer(blobs);
-	CopySolverBuffer(blobs, solver_template->net()->learnable_params);
+	ReplaceSolverBuffer(blobs_dest);
+	CopySolverBuffer(blobs_src);
 
 	// init sync_comm and attach to diff_ buffer on GPU
-	sync_comm_.Init(buf_size, diff_);	
+	sync_comm_.Init(buf_size_, diff_);	
 	pthread_barrier_init(&data_ready_, NULL, 2);
 	// wait for initilization of other workers in the same process
 	pthread_barrier_wait(sync_comm_.process_barrier_);
@@ -40,7 +44,7 @@ void Worker<Dtype>::Init(caffe::Solver<Dtype>* solver_template) {
 
 
 template <typename Dtype>
-void Worker<Dtype>::ReplaceSolverBuffer(vector<Blob<Dtype>*>& blobs) {
+void Worker<Dtype>::ReplaceSolverBuffer(const std::vector<caffe::Blob<Dtype>*>& blobs) {
 	Dtype* model_ptr = model_;
 	Dtype* diff_ptr = diff_;
 	for (int i = 0; i < blobs.size(); i++) {
@@ -54,15 +58,38 @@ void Worker<Dtype>::ReplaceSolverBuffer(vector<Blob<Dtype>*>& blobs) {
 
 
 template <typename Dtype>
-void Worker<Dtype>::CopySolverBuffer(vector<Blob<Dtype>*> blobs_dest,
-	vector<Blob<Dtype>*> blobs_src) {
-	for (int i = 0; i < blobs.size(); i++) {
-		int size = blobs_dest[i]->count();
-		CHECK_EQ(blobs_dest[i]->count(), blobs_src[i]->count() );
-		CUDA_CHECK(cudaMemcpy(blobs_dest[i]->data()->gpu_data(),
-			blobs_src[i]->data()->gpu_data(), sizeof(Dtype) * size,
-			cudaMemcpyDeviceToDevice) );
+void Worker<Dtype>::CopySolverBuffer(const std::vector<caffe::Blob<Dtype>*>& blobs_src) {
+	Dtype* ptr = model_;
+	int64_t model_size = 0;
+	for (int i = 0; i < blobs_src.size(); i++) {
+		int size = blobs_src[i]->count();
+		// CHECK_EQ(blobs_dest[i]->count(), blobs_src[i]->count() );
+		CUDA_CHECK(cudaMemcpy(ptr, blobs_src[i]->data()->gpu_data(), 
+			sizeof(Dtype) * size, cudaMemcpyDeviceToDevice) );
+		ptr += size;
+		model_size += size;
 	}
+	if (model_size != buf_size_) {
+		std::cout << "copying solver buffer: src size not equal to dest size " << std::endl;
+		exit(1);
+	}
+}
+
+
+// Buffer size necessary to store given blobs
+template<typename Dtype>
+int64_t Worker<Dtype>::GetModelSize(const std::vector<caffe::Blob<Dtype>*>& blobs) {
+  int64_t size = 0;
+  for (int i = 0; i < blobs.size(); ++i)
+    size += blobs[i]->count();
+  // Size have at least one byte, otherwise cudaMalloc fails if net has no
+  // learnable parameters.
+  buf_size_ = size;
+  if (buf_size_ == 0) {
+  	std::cout << "The given model blob list cost 0 memory!" << std::endl;
+  	exit(1);
+  }
+  return size;
 }
 
 
@@ -79,13 +106,13 @@ void Worker<Dtype>::SyncComputeLoop() {
 	std::vector<Dtype> test_res;
 #endif
 
-	for (int i = 0; i < this->solver_->n_iter_; i++) {
+	for (int i = 0; i < this->solver_->param().max_iter(); i++) {
 		// b_data: wait until data loading is done
 		pthread_barrier_wait(&(this->data_ready_) );
 
 		// do computation
 		// solver_->Compute();
-		solver->SingleStep();
+		solver_->SingleStep();
 
 		/**
 		 * do intra-group synchronization, the un-divided data is 
@@ -95,7 +122,7 @@ void Worker<Dtype>::SyncComputeLoop() {
 		
 		// solver combines the diff and model
 		// solver_->UpdateModelFromDiff();
-		solver_->ApplyUpdate();
+		// solver_->ApplyUpdate();
 
 #ifdef TEST
 	Dtype* host_buf = new Dtype[this->solver_->buf_size_];
@@ -136,7 +163,7 @@ void Worker<Dtype>::LoadDataLoop() {
 	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in LoadDataLoop function");
 #endif
 
-	for (int i = 0; i < solver_->n_iter_; i++) {
+	for (int i = 0; i < solver_->param().max_iter(); i++) {
 		// TODO Jian replace with real data loading
 		usleep(300000);
 
@@ -155,14 +182,14 @@ void Worker<Dtype>::LoadDataLoop() {
 
 
 template <typename Dtype>
-void Worker<Dtype>::Run() {
+void Worker<Dtype>::Run(caffe::Solver<Dtype>* solver_template) {
 
 #ifdef DEBUG
 	DEBUG_PRINT_RANK(MPI_COMM_WORLD, " in run function");
 #endif
 
 	// inti first before spawn threads
-	Init();
+	Init(solver_template);
 
 	// spawn data loading thread 
 	std::thread data_load_thread(&Worker<Dtype>::LoadDataLoop, this);

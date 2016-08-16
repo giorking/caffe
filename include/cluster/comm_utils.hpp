@@ -25,6 +25,8 @@
 #include "glog/logging.h"
 #include "nccl/src/nccl.h"
 
+#include "caffe/solver.hpp"
+
 // #ifndef N_PROC_PER_GROUP
 // #define N_PROC_PER_GROUP 2
 // #endif
@@ -102,7 +104,7 @@ template<> struct DtypeToMPIDtype<double> {
 void GetGpuIds(std::vector<int>& gpu_ids);
 
 // parse system setting argument
-void ParseCmdArg(int argc, char** argv);
+void ParseSysConfigArg(int argc, char** argv);
 
 
 // setup sync workers 

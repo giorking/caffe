@@ -15,5 +15,5 @@ void DisplayGpuArray(Dtype* GpuArray, int64_t n_entry_to_display, std::string& s
 	delete CpuArray;
 }
 
-template void DisplayGpuArray<float>(float* GpuArray, int64_t n_entry_to_display, string& str);
-template void DisplayGpuArray<double>(double* GpuArray, int64_t n_entry_to_display, string& str);
+template void DisplayGpuArray<float>(float* GpuArray, int64_t n_entry_to_display, std::string& str);
+template void DisplayGpuArray<double>(double* GpuArray, int64_t n_entry_to_display, std::string& str);

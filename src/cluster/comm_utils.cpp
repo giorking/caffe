@@ -1,5 +1,24 @@
 #include <vector>
+#include <thread>
 #include "cluster/comm_utils.hpp"
+#include "cluster/worker.hpp"
+
+
+// initilize global variable
+// the number of processes in a synchronized group.
+int nProcPerGroup;
+
+// the number of machines in a synchronized group.
+int nMachinePerGroup;
+
+/**
+ * the number of process on a single machine. Derived from
+ * nProcPerGroup and nMachinePerGroup.
+ */
+int nProcPerMachine;
+
+// the number of gpu cards each process has. 
+int nDevicePerProc;
 
 
 void GetGpuIds(std::vector<int>& gpu_ids) {
@@ -13,12 +32,12 @@ void GetGpuIds(std::vector<int>& gpu_ids) {
 }
 
 
-void ParseCmdArg(int argc, char** argv) {
+void ParseSysConfigArg(int argc, char** argv) {
   if ( (argc <= 1) || (argv[argc-1] == NULL) || (argv[argc-1][0] == '-') )
     std::cerr << "No argument provided!" << std::endl;
   static struct option long_options[] = {
     {"n_device_per_proc", required_argument, 0, 'a'},
-    {"n_machine_per_group", required_argument,      0, 'b'},
+    {"n_machine_per_group", required_argument, 0, 'b'},
     {"n_proc_per_machine", required_argument, 0, 'c'},
     {0, 0, 0, 0}
   };
@@ -40,11 +59,13 @@ void ParseCmdArg(int argc, char** argv) {
     		nMachinePerGroup = std::atoi(optarg);
     	case 'c':
     		nProcPerMachine = std::atoi(optarg);
-    	case '?':
-    		break;
+    	// case '?':
+    	// 	break;
+    	// 	this function only deals with argument related to sys configuration
     	default:
-    		std::cerr << "wrong argument!" << std::endl;
-    		std::exit(1);
+    		break;
+    		// std::cerr << "wrong argument!" << std::endl;
+    		// std::exit(1);
     }
 	}
 	nProcPerGroup = nProcPerMachine * nMachinePerGroup;
@@ -52,16 +73,16 @@ void ParseCmdArg(int argc, char** argv) {
 
 
 template <typename Dtype>
-void RunSyncWorkers(caffe::Solver<float>* solver_template) {
-	vector<int> gpu_ids;
+void RunSyncWorkers(caffe::Solver<Dtype>* solver_template) {
+	std::vector<int> gpu_ids;
 	GetGpuIds(gpu_ids);
 	int mpi_rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 	int mpi_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 	
-	// parse system setting environment
-	ParseCmdArg(argc, argv);
+	// // parse system setting environment
+	// ParseCmdArg(argc, argv);
 
 	// check for macro settings from comm_utils.hpp
 	if (gpu_ids.size() != nProcPerMachine * nDevicePerProc) {
@@ -70,7 +91,7 @@ void RunSyncWorkers(caffe::Solver<float>* solver_template) {
 	}
 	if (mpi_size % nProcPerMachine) {
 		std::cout << "Processes can not be equaly distributed to machines!" << std::endl;
-		std:exit(1);
+		std::exit(1);
 	}
 	if (mpi_size / nProcPerGroup != 1) {
 		std::cout << "Need a single group to test sync worker!" << std::endl;
@@ -101,7 +122,9 @@ void RunSyncWorkers(caffe::Solver<float>* solver_template) {
 
 	for (int i = 0; i < nDevicePerProc; i++) {
 		// std::thread* worker_thread = new std::thread(std::thread (InitAndRunWorker<Dtype>, &worker_init, workers[i] ) );
-		std::thread* worker_thread = new std::thread(std::thread (&Worker<Dtype>::Run, std::ref(*workers[i] ), solver_template) );
+		
+		// std::thread* worker_thread = new std::thread( [&] { workers[i]->Run(solver_template); } );
+		std::thread* worker_thread = new std::thread(&Worker<Dtype>::Run, workers[i], solver_template);
 		worker_threads.push_back(worker_thread);
 	}
 	for (int i = 0; i < nDevicePerProc; i++)
@@ -116,3 +139,7 @@ void RunSyncWorkers(caffe::Solver<float>* solver_template) {
 		process_barrier = NULL;
 	}
 }
+
+
+template void RunSyncWorkers<float>(caffe::Solver<float>* solver_template);
+template void RunSyncWorkers<double>(caffe::Solver<double>* solver_template);

@@ -36,7 +36,6 @@ void AsyncCommunicator<Dtype>::Destroy() {
 template <typename Dtype>
 void AsyncCommunicator<Dtype>::SendRecvLoop(int n_iter) {
 	MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
-	int async_rank = config_.mpi_async_rank_;
 	MPI_Status recv_status;
 
 #ifdef TIMER

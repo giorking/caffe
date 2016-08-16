@@ -46,6 +46,16 @@ COMMON_FLAGS += -DCAFFE_VERSION=$(DYNAMIC_VERSION_MAJOR).$(DYNAMIC_VERSION_MINOR
 ##############################
 # CXX_SRCS are the source files excluding the test ones.
 CXX_SRCS := $(shell find src/$(PROJECT) ! -name "test_*.cpp" -name "*.cpp")
+
+##############################
+# Adaptation for novu_caffe
+##############################
+# CXX_SRCS += $(shell find src/cluster ! -name "test_*.cpp" -name "*.cpp")
+CXX_SRCS += src/cluster/comm_utils.cpp src/cluster/debug_utils.cpp \
+	src/cluster/sync_communicator.cpp src/cluster/worker.cpp \
+	src/cluster/timer.cpp
+#######################################################################
+
 # CU_SRCS are the cuda source files
 CU_SRCS := $(shell find src/$(PROJECT) ! -name "test_*.cu" -name "*.cu")
 # TEST_SRCS are the test source files
@@ -264,6 +274,7 @@ ifeq ($(LINUX), 1)
 	# We will also explicitly add stdc++ to the link target.
 	LIBRARIES += boost_thread stdc++
 	VERSIONFLAGS += -Wl,-soname,$(DYNAMIC_VERSIONED_NAME_SHORT) -Wl,-rpath,$(ORIGIN)/../lib
+	CXXFLAGS += -std=c++11
 endif
 
 # OS X:
@@ -400,6 +411,19 @@ LIBRARY_DIRS += $(LIB_BUILD_DIR)
 # Automatic dependency generation (nvcc is handled separately)
 CXXFLAGS += -MMD -MP
 
+
+##############################
+# Adaptation for novu_caffe
+##############################
+MPICXX = /usr/local/bin/mpic++
+LDFLAGS += -lnccl -lmpi
+INCLUDE_DIRS += /home/zjian/mpich-install/include
+# CLUSTER_SRC = async_communicator.cpp async_mem.cpp async_worker.cpp comm_utils.cpp \
+# 	debug_utils.cpp sync_communicator.cpp worker.cpp
+# CLUSTER_OBJ = $(CLUSTER_SRC:%.cpp=%.o)
+####################################################
+
+
 # Complete build flags.
 COMMON_FLAGS += $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 CXXFLAGS += -pthread -fPIC $(COMMON_FLAGS) $(WARNINGS)
@@ -435,6 +459,7 @@ EVERYTHING_TARGETS := all py$(PROJECT) test warn lint
 ifneq ($(MATLAB_DIR),)
 	EVERYTHING_TARGETS += mat$(PROJECT)
 endif
+
 
 ##############################
 # Define build targets
@@ -612,10 +637,14 @@ $(TOOL_BUILD_DIR)/%: $(TOOL_BUILD_DIR)/%.bin | $(TOOL_BUILD_DIR)
 	@ $(RM) $@
 	@ ln -s $(notdir $<) $@
 
+#################
+# updated by Jian
+#################
 $(TOOL_BINS): %.bin : %.o | $(DYNAMIC_NAME)
 	@ echo CXX/LD -o $@
-	$(Q)$(CXX) $< -o $@ $(LINKFLAGS) -l$(LIBRARY_NAME) $(LDFLAGS) \
+	$(Q)$(MPICXX) $< -o $@ $(LINKFLAGS) -l$(LIBRARY_NAME) $(LDFLAGS) \
 		-Wl,-rpath,$(ORIGIN)/../lib
+
 
 $(EXAMPLE_BINS): %.bin : %.o | $(DYNAMIC_NAME)
 	@ echo CXX/LD -o $@

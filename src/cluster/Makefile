@@ -3,12 +3,17 @@ NVCC = /usr/local/cuda/bin/nvcc
 CXX = /usr/bin/g++
 MPICXX = /usr/local/bin/mpic++
 MPICXXSERVER = /home/zjian/mpich-install/bin/mpic++
+CAFFESTATIC = ../../.build_release/lib/libcaffe.a
 
 # compiler flags
-CFLAGS = -std=c++11
-LDFLAGS = -L/usr/local/cuda/lib64 -lcudart -lcuda -lcublas -lglog -lnccl -lmpi 
+CFLAGS = -std=c++11 
+CFLAGS += `pkg-config --cflags opencv`
+LDFLAGS = -L/usr/local/cuda/lib64 -lcudart -lcuda -lcublas 
+LDFLAGS += -lglog -lgflags -lprotobuf -lcblas -lnccl -lmpi 
+LDFLAGS += -lopencv_core -lopencv_highgui -lopencv_imgproc 
+LDFLAGS += -llmdb -lboost_system -lboost_filesystem -lm -lhdf5_hl -lhdf5
 INCFLAGS = -I/home/zjian/Code/novu_caffe_v2/caffe/include/ -I/usr/local/cuda/include \
-	-I/home/zjian/mpich-install/include
+	-I/home/zjian/mpich-install/include -I../../.build_release/src/
 PTHREADFLAGS = -pthread
 ERRFLAG = -fmax-errors=3
 
@@ -48,7 +53,7 @@ ALLOBJ += $(ASYNCCOMMOBJ)
 # sync worker test
 SYNCWORKEREXE = test_sync_worker
 SYNCWORKERSRC = test_sync_worker.cpp sync_communicator.cpp \
-	worker.cpp debug_utils.cpp timer.cpp solver.cpp comm_utils.cpp
+	worker.cpp debug_utils.cpp timer.cpp comm_utils.cpp
 SYNCWORKEROBJ = $(SYNCWORKERSRC:%.cpp=%.o)
 # SYNCWORKEROBJ += $(SYNCWORKERSRC:%.cu=%.cu.o)
 ALLEXE += $(SYNCWORKEREXE)
@@ -100,13 +105,22 @@ async_comm: $(ASYNCCOMMOBJ)
 	mpirun --hostfile hosts.txt -np 8 ./$(ASYNCCOMMEXE)
 
 
+# sync_worker: $(SYNCWORKEROBJ)
+# 	@echo Linking
+# 	$(MPICXX) $(CFLAGS) $(PTHREADFLAGS) $(SYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(SYNCWORKEREXE)
+# 	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
+# 	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
+# 	mpirun --hostfile hosts.txt -np 2 ./$(SYNCWORKEREXE) --n_device_per_proc 1 --n_machine_per_group 2 --n_proc_per_machine 1
+
 sync_worker: $(SYNCWORKEROBJ)
 	@echo Linking
-	$(MPICXX) $(CFLAGS) $(PTHREADFLAGS) $(SYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(SYNCWORKEREXE)
-	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
-	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
-	mpirun --hostfile hosts.txt -np 2 ./$(SYNCWORKEREXE) --n_device_per_proc 1 --n_machine_per_group 2 --n_proc_per_machine 1
+	$(MPICXX) $(CFLAGS) $(PTHREADFLAGS) $(SYNCWORKEROBJ) $(CAFFESTATIC) $(LDFLAGS) $(INCFLAGS) -o $(SYNCWORKEREXE)
 
+
+# sync_worker_lib: $(SYNCWORKEROBJ)
+# 	@echo Linking
+# 	# $(MPICXX) $(CFLAGS) $(PTHREADFLAGS) $(SYNCWORKEROBJ) $(LDFLAGS) $(INCFLAGS) -o $(SYNCWORKEREXE)
+# 	ar rcs libsyncworker.a $(SYNCWORKEROBJ)
 
 async_worker: $(ASYNCWORKEROBJ)
 	@echo Linking

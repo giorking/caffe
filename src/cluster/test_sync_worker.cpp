@@ -32,7 +32,7 @@ void Train(int argc, char** argv) {
 	 * count the number of GPUs available from this process
 	 * and init all the workers.
 	 */
-	vector<int> gpu_ids;
+	std::vector<int> gpu_ids;
 	GetGpuIds(gpu_ids);
 	int mpi_rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -40,7 +40,7 @@ void Train(int argc, char** argv) {
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 	
 	// parse system setting environment
-	ParseCmdArg(argc, argv);
+	ParseSysConfigArg(argc, argv);
 
 	// check for macro settings from comm_utils.hpp
 	if (gpu_ids.size() != nProcPerMachine * nDevicePerProc) {
@@ -99,14 +99,14 @@ void Train(int argc, char** argv) {
 }
 
 
-int main(int argc, char** argv) {
-	int rank;
-	int size;
-	MPI_Init(NULL, NULL);
+// int main(int argc, char** argv) {
+// 	int rank;
+// 	int size;
+// 	MPI_Init(NULL, NULL);
 
-	Train<float>(argc, argv);
+// 	Train<float>(argc, argv);
 
-	std::cout << "start finalize" << std::endl;
+// 	std::cout << "start finalize" << std::endl;
 	
-	MPI_Finalize();
-}
+// 	MPI_Finalize();
+// }
