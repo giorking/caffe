@@ -60,6 +60,8 @@ class Solver {
   /**
    * @brief An implementation of a single step
    */
+  // added by Jian: simple preparation before looping with Single Step
+  void PrepareStepLoop();
   Dtype SingleStep();
   /**
    * @brief Run a specific number of iterations
@@ -81,6 +83,7 @@ class Solver {
     return test_nets_;
   }
   int iter() { return iter_; }
+  inline void IncrementIter() { iter_++; }
 
   // Invoked at specific points during an iteration
   class Callback {
@@ -101,10 +104,11 @@ class Solver {
    * @brief Returns the solver type.
    */
   virtual inline const char* type() const { return ""; }
-
- protected:
   // Make and apply the update value for the current iteration.
   virtual void ApplyUpdate() = 0;
+
+
+ protected:
   string SnapshotFilename(const string extension);
   string SnapshotToBinaryProto();
   string SnapshotToHDF5();
@@ -137,6 +141,14 @@ class Solver {
   // True iff a request to stop early was received.
   bool requested_early_exit_;
 
+  /**
+   * Modified by Jian: turn some local variables to 
+   * member variables for restructuring
+   */
+  int start_iter_;
+  int average_loss_;
+
+
   DISABLE_COPY_AND_ASSIGN(Solver);
 };
 
@@ -151,8 +163,9 @@ class WorkerSolver : public Solver<Dtype> {
       const Solver<Dtype>* root_solver = NULL)
       : Solver<Dtype>(param, root_solver) {}
 
- protected:
   void ApplyUpdate() {}
+
+ protected:
   void SnapshotSolverState(const string& model_filename) {
     LOG(FATAL) << "Should not be called on worker solver.";
   }

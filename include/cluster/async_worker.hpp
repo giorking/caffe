@@ -3,6 +3,10 @@
 #include "cluster/async_mem.hpp"
 #include "cluster/worker.hpp"
 
+
+namespace caffe {
+
+
 template <typename Dtype>
 class AsyncWorker : public Worker<Dtype> {
 public:
@@ -45,3 +49,5 @@ private:
 	AsyncCommunicator<Dtype> async_comm_;	
 
 };
+
+}

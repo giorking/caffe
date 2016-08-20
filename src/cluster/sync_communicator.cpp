@@ -9,6 +9,9 @@
 #include "cluster/timer.hpp"
 
 
+namespace caffe {
+
+
 template <typename Dtype>
 void SyncCommunicator<Dtype>::Init(int64_t buf_size, Dtype* external_gpu_buf) {
   // set buffer size
@@ -18,9 +21,6 @@ void SyncCommunicator<Dtype>::Init(int64_t buf_size, Dtype* external_gpu_buf) {
   CUDA_CHECK(cudaSetDevice(config_.device_id_) );
   
   gpu_buf_ = external_gpu_buf;
-  // Old memory allocation
-  // CUDA_CHECK(cudaMalloc(&gpu_buf_, sizeof(Dtype) * gpu_buf_size_) );
-  // CUDA_CHECK(cudaMemset(gpu_buf_, 0, sizeof(Dtype) * gpu_buf_size_) );
 
   int n_device;
   CUDA_CHECK(cudaGetDeviceCount(&n_device) );
@@ -41,11 +41,17 @@ void SyncCommunicator<Dtype>::Init(int64_t buf_size, Dtype* external_gpu_buf) {
 
   if (config_.is_clique_root_) {
     mpi_sync_comm_ = new MPI_Comm;
-    mpi_sync_buf_ = new Dtype[mpi_sync_buf_size_];
+    // mpi_sync_buf_ = new Dtype[mpi_sync_buf_size_];
+    // we use pinned memory as mpi_sync_buf may write large block to device.
+    CUDA_CHECK(cudaMallocHost(&mpi_sync_buf_, sizeof(Dtype) * mpi_sync_buf_size_) );
+    CUDA_CHECK(cudaMemset(mpi_sync_buf_, 0, sizeof(Dtype) * mpi_sync_buf_size_) );
     std::memset(mpi_sync_buf_, 0, sizeof(Dtype) * mpi_sync_buf_size_);
     MPI_Comm_split(MPI_COMM_WORLD, config_.group_id_, 
       config_.mpi_rank_, mpi_sync_comm_);
   }
+
+  CUBLAS_CHECK(cublasCreate(&cublas_handle_) );
+
 }
 
 
@@ -135,7 +141,11 @@ void SyncCommunicator<Dtype>::InterMachineAllReduce() {
 
 
 template <typename Dtype>
-void SyncCommunicator<Dtype>::SyncGroup(bool do_broadcast) {
+void SyncCommunicator<Dtype>::SyncGroup(bool do_broadcast) {}
+
+
+template <>
+void SyncCommunicator<float>::SyncGroup(bool do_broadcast) {
   /**
    * recvbuf may be NULL for non-clique-lead GPU
    * We first use reduce to gether within clique
@@ -150,8 +160,40 @@ void SyncCommunicator<Dtype>::SyncGroup(bool do_broadcast) {
     InterMachineAllReduce();
 
   // broadcast within clique 
-  if (do_broadcast)
+  if (do_broadcast) {
     CliqueBroadcast();
+    // all reduce use the sum operator, we divide by the number of workers
+    float n_device_per_group = 1.0 / (nDevicePerProc * nProcPerMachine * nMachinePerGroup);
+    CUBLAS_CHECK(cublasSscal(cublas_handle_, gpu_buf_size_, 
+      &n_device_per_group, gpu_buf_, 1) );
+  }
+}
+
+
+// we need to use different cublas api for float and double
+template <>
+void SyncCommunicator<double>::SyncGroup(bool do_broadcast) {
+  /**
+   * recvbuf may be NULL for non-clique-lead GPU
+   * We first use reduce to gether within clique
+   * Then reduce-all with MPI Then broadcast with 
+   * clique from clique lead
+   */
+  // reduce within clique 
+  CliqueReduce();
+
+  // inter ndoe communication 
+  if (config_.is_clique_root_)
+    InterMachineAllReduce();
+
+  // broadcast within clique 
+  if (do_broadcast) {
+    CliqueBroadcast();
+    // all reduce use the sum operator, we divide by the number of workers
+    double n_device_per_group = 1.0 / (nDevicePerProc * nProcPerMachine * nMachinePerGroup);
+    CUBLAS_CHECK(cublasDscal(cublas_handle_, gpu_buf_size_, 
+      &n_device_per_group, gpu_buf_, 1) );
+  }
 }
 
 
@@ -159,3 +201,5 @@ template class SyncCommConfig<float>;
 template class SyncCommConfig<double>;
 template class SyncCommunicator<float>;
 template class SyncCommunicator<double>; 
+
+}

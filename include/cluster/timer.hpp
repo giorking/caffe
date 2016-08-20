@@ -11,15 +11,16 @@
 
 #include <sys/time.h>
 
+// namespace novu {
 
-class Timer
+class Timer1
 {
 public:
-    Timer();                                    // default constructor
-    ~Timer();                                   // default destructor
+    Timer1();                                    // default constructor
+    ~Timer1();                                   // default destructor
 
-    void   start();                             // start timer
-    void   stop();                              // stop the timer
+    void   start();                             // start Timer1
+    void   stop();                              // stop the Timer1
     double getElapsedTime();                    // get elapsed time in second
     double getElapsedTimeInSec();               // get elapsed time in second (same as getElapsedTime)
     double getElapsedTimeInMilliSec();          // get elapsed time in milli-second
@@ -36,5 +37,7 @@ private:
     timeval startCount;                        
     timeval endCount;                          
 };
+
+// }
 
 #endif // 

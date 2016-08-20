@@ -416,7 +416,10 @@ CXXFLAGS += -MMD -MP
 # Adaptation for novu_caffe
 ##############################
 MPICXX = /usr/local/bin/mpic++
+#MPICXX = /home/zjian/mpich-install/bin/mpic++
+#LDFLAGS += -L/home/zjian/mpich-install/lib
 LDFLAGS += -lnccl -lmpi
+# INCLUDE_DIRS += /usr/local/include
 INCLUDE_DIRS += /home/zjian/mpich-install/include
 # CLUSTER_SRC = async_communicator.cpp async_mem.cpp async_worker.cpp comm_utils.cpp \
 # 	debug_utils.cpp sync_communicator.cpp worker.cpp
@@ -637,9 +640,7 @@ $(TOOL_BUILD_DIR)/%: $(TOOL_BUILD_DIR)/%.bin | $(TOOL_BUILD_DIR)
 	@ $(RM) $@
 	@ ln -s $(notdir $<) $@
 
-#################
-# updated by Jian
-#################
+
 $(TOOL_BINS): %.bin : %.o | $(DYNAMIC_NAME)
 	@ echo CXX/LD -o $@
 	$(Q)$(MPICXX) $< -o $@ $(LINKFLAGS) -l$(LIBRARY_NAME) $(LDFLAGS) \

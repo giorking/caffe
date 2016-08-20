@@ -5,6 +5,8 @@
 #include <vector>
 
 #include "caffe/solver.hpp"
+#include "cluster/worker.hpp"
+#include "cluster/async_worker.hpp"
 
 namespace caffe {
 
@@ -23,10 +25,11 @@ class SGDSolver : public Solver<Dtype> {
 
   const vector<shared_ptr<Blob<Dtype> > >& history() { return history_; }
 
+  virtual void ApplyUpdate();
+  
  protected:
   void PreSolve();
   Dtype GetLearningRate();
-  virtual void ApplyUpdate();
   virtual void Normalize(int param_id);
   virtual void Regularize(int param_id);
   virtual void ComputeUpdateValue(int param_id, Dtype rate);
@@ -43,6 +46,9 @@ class SGDSolver : public Solver<Dtype> {
   vector<shared_ptr<Blob<Dtype> > > history_, update_, temp_;
 
   DISABLE_COPY_AND_ASSIGN(SGDSolver);
+
+  friend class Worker<Dtype>;
+  friend class AsyncWorker<Dtype>;
 };
 
 template <typename Dtype>

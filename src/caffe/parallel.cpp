@@ -96,6 +96,7 @@ GPUParams<Dtype>::GPUParams(shared_ptr<Solver<Dtype> > root_solver, int device)
 #else
   NO_GPU;
 #endif
+
 }
 
 template<typename Dtype>

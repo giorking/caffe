@@ -4,6 +4,8 @@
 #include "cluster/async_worker.hpp"
 
 
+namespace caffe {
+
 template <typename Dtype>
 void AsyncWorker<Dtype>::Init() {
 	Worker<Dtype>::Init();
@@ -230,3 +232,5 @@ void AsyncWorker<Dtype>::Run() {
 
 template class AsyncWorker<float>;
 template class AsyncWorker<double>;
+
+}

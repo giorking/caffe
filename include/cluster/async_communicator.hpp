@@ -8,6 +8,9 @@
 #include "cluster/async_mem.hpp"
 
 
+namespace caffe {
+
+
 // forward declaration for communicator config
 template <typename Dtype>
 class AsyncCommunicator;
@@ -126,5 +129,6 @@ friend class Worker<Dtype>;
 friend class AsyncWorker<Dtype>;
 };
 
+}
 
 #endif // end of ASYNC_COMMUNICATOR_H_

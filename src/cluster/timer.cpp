@@ -8,7 +8,7 @@
 #include "cluster/timer.hpp"
 #include <stdlib.h>
 
-Timer::Timer()
+Timer1::Timer1()
 {
     startCount.tv_sec = startCount.tv_usec = 0;
     endCount.tv_sec = endCount.tv_usec = 0;
@@ -18,24 +18,24 @@ Timer::Timer()
     endTimeInMicroSec = 0;
 }
 
-Timer::~Timer()
+Timer1::~Timer1()
 {
 }
 
-void Timer::start()
+void Timer1::start()
 {
     stopped = 0; // reset stop flag
     gettimeofday(&startCount, NULL);
 }
 
-void Timer::stop()
+void Timer1::stop()
 {
-    stopped = 1; // set timer stopped flag
+    stopped = 1; // set Timer1 stopped flag
 
     gettimeofday(&endCount, NULL);
 }
 
-double Timer::getElapsedTimeInMicroSec()
+double Timer1::getElapsedTimeInMicroSec()
 {
     if(!stopped)
         gettimeofday(&endCount, NULL);
@@ -48,19 +48,19 @@ double Timer::getElapsedTimeInMicroSec()
 
 
 
-double Timer::getElapsedTimeInMilliSec()
+double Timer1::getElapsedTimeInMilliSec()
 {
     return this->getElapsedTimeInMicroSec() * 0.001;
 }
 
 
 
-double Timer::getElapsedTimeInSec()
+double Timer1::getElapsedTimeInSec()
 {
     return this->getElapsedTimeInMicroSec() * 0.000001;
 }
 
-double Timer::getElapsedTime()
+double Timer1::getElapsedTime()
 {
     return this->getElapsedTimeInSec();
 }

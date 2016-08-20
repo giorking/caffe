@@ -12,6 +12,10 @@
 #include "caffe/layer.hpp"
 #include "caffe/proto/caffe.pb.h"
 
+#include "cluster/debug_utils.hpp"
+#include "cluster/timer.hpp"
+
+
 namespace caffe {
 
 /**
@@ -85,8 +89,21 @@ class Net {
 
   Dtype ForwardBackward() {
     Dtype loss;
+
+    // Timer1 timer;
+    // timer.start();
     Forward(&loss);
+
+    // timer.stop();
+    // DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer, "Forward time ");
+
+    // timer.start();
+
     Backward();
+
+    // timer.stop();
+    // DEBUG_PRINT_TIME_WITH_RANK_DEVICE_ID(MPI_COMM_WORLD, timer, "Backward time ");
+
     return loss;
   }
 

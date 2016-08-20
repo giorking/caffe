@@ -11,6 +11,8 @@
 #include "caffe/util/device_alternate.hpp"
 
 
+namespace caffe {
+
 /* Derive or set differently for different communication */
 template<typename Dtype>
 class SyncCommunicator;
@@ -27,7 +29,7 @@ template<typename Dtype>
 class SyncCommConfig {
 public:
   // we use ncclComm_t** like we use ptr of ptr for cudaMalloc
-  SyncCommConfig() {};
+  SyncCommConfig()  {};
   SyncCommConfig(int device_id, ncclUniqueId clique_id) :
     device_id_(device_id), clique_id_(clique_id) {
     int n_device;
@@ -53,15 +55,13 @@ public:
   SyncCommConfig(const SyncCommConfig<Dtype>& config) : 
     device_id_(config.device_id_), 
     group_id_(config.group_id_),
+    clique_id_(config.clique_id_),
     n_dev_in_clique_(config.n_dev_in_clique_),
     clique_rank_(config.clique_rank_),
     clique_root_rank_(config.clique_root_rank_),
-    clique_id_(config.clique_id_),
     is_clique_root_(config.is_clique_root_),
-    is_group_root_(config.is_group_root_),
-    mpi_rank_(config.mpi_rank_) {}
-  // we use default assignment operator
-  // operator=(const SyncCommConfig<Dtype>& config) {}
+    mpi_rank_(config.mpi_rank_),
+    is_group_root_(config.is_group_root_) {}
 
   /* access function*/
   // inline int64_t GetGpuBufferSize() { return gpu_buf_size_; }
@@ -98,17 +98,19 @@ friend class SyncCommunicator<Dtype>;
 friend class Worker<Dtype>;
 }; 
 
+
 /*base communicator class*/
 template<typename Dtype>
 class SyncCommunicator {
 public:
   SyncCommunicator() :
+    config_(),
     nccl_comm_(NULL),
     stream_comm_(NULL),
     mpi_sync_comm_(NULL),
     gpu_buf_(NULL),
-    mpi_sync_buf_(NULL),
     gpu_buf_size_(0),
+    mpi_sync_buf_(NULL),
     mpi_sync_buf_size_(0),
     process_barrier_(NULL) {}
   SyncCommunicator(const SyncCommConfig<Dtype>& config, 
@@ -118,8 +120,8 @@ public:
     stream_comm_(NULL),
     mpi_sync_comm_(NULL),
     gpu_buf_(NULL),
-    mpi_sync_buf_(NULL),
     gpu_buf_size_(0),
+    mpi_sync_buf_(NULL),
     mpi_sync_buf_size_(0),
     process_barrier_(process_barrier) {}
   // we use default assignment communicator
@@ -130,7 +132,7 @@ public:
     //   CUDA_CHECK(cudaFree(gpu_buf_) );
     gpu_buf_ = NULL;
     if (mpi_sync_buf_ != NULL)
-      delete mpi_sync_buf_;
+      CUDA_CHECK(cudaFreeHost(mpi_sync_buf_) );
     if (nccl_comm_ != NULL) {
       ncclCommDestroy(*nccl_comm_);
       nccl_comm_ = NULL;
@@ -139,6 +141,7 @@ public:
       CUDA_CHECK(cudaStreamDestroy(*stream_comm_) );
       stream_comm_ = NULL;
     }
+    CUBLAS_CHECK(cublasDestroy(cublas_handle_) );
   }
 
 
@@ -174,12 +177,12 @@ private:
   MPI_Comm* mpi_sync_comm_;
 
   // buffer for intra-node gpu communication. We only attach gpu memory, never allocate here
-  int64_t gpu_buf_size_;
   Dtype* gpu_buf_;
+  int64_t gpu_buf_size_;
 
   // inter-node intra-group communication using mpi 
-  int64_t mpi_sync_buf_size_;
   Dtype* mpi_sync_buf_;
+  int64_t mpi_sync_buf_size_;
 
   /**
    * copy barrier from external code, regularize behavior of workers
@@ -187,8 +190,15 @@ private:
    */
   pthread_barrier_t* process_barrier_;
 
+  // used for division on gpu
+  cublasHandle_t cublas_handle_;
+
 friend class Worker<Dtype>;
 friend class AsyncWorker<Dtype>;
 };
+
+
+}
+
 
 #endif  // COMMUNICATOR_HPP_

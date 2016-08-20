@@ -18,9 +18,9 @@
 // #define TEST
 // #endif
 
-#ifndef TIMER
-#define TIMER
-#endif
+// #ifndef TIMER
+// #define TIMER
+// #endif
 
 
 #define DEBUG_PRINT(content) do { \

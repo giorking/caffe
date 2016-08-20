@@ -14,34 +14,30 @@
  * communication between inter and intra operations.
  */
 
-
 // for definition of NULL 
 #include <cstddef>
 #include <mpi.h>
 #include <pthread.h>
 #include <getopt.h>
 #include <iostream>
+#include <cublas_v2.h>
 // for definition of CHECK_EQ
-#include "glog/logging.h"
+#include <glog/logging.h>
+// #include <gflags/gflags.h>
 #include "nccl/src/nccl.h"
 
 #include "caffe/solver.hpp"
 
-// #ifndef N_PROC_PER_GROUP
-// #define N_PROC_PER_GROUP 2
+
+// #ifndef HIDE_DATA_FEED
+// #define HIDE_DATA_FEED
 // #endif
 
-// #ifndef N_MACHINE_PER_GROUP
-// #define N_MACHINE_PER_GROUP 1 	
-// #endif
 
-// #ifndef N_PROC_PER_MACHINE
-// #define N_PROC_PER_MACHINE 2
-// #endif
+// related to gflags
+DECLARE_string(snapshot);
+DECLARE_string(weights);
 
-// #ifndef N_DEVICE_PER_PROC
-// #define N_DEVICE_PER_PROC  1
-// #endif
 
 #ifndef CLIQUE_ROOT_RANK
 #define CLIQUE_ROOT_RANK 0
@@ -52,6 +48,14 @@
   do { \
     cudaError_t error = condition; \
     CHECK_EQ(error, cudaSuccess) << " " << cudaGetErrorString(error); \
+  } while (0)
+
+
+#define CUBLAS_CHECK(condition) \
+  do { \
+    cublasStatus_t status = condition; \
+    CHECK_EQ(status, CUBLAS_STATUS_SUCCESS) << " " \
+   		<< caffe::cublasGetErrorString(status); \
   } while (0)
 
 
@@ -73,6 +77,9 @@ extern int nProcPerMachine;
 
 // the number of gpu cards each process has. 
 extern int nDevicePerProc;
+
+// a global mutex for initilization coordination
+extern pthread_mutex_t globalInitMutex;
 
 
 // Compile time mapping from typename Dtype to ncclDataType_t 
@@ -107,9 +114,12 @@ void GetGpuIds(std::vector<int>& gpu_ids);
 void ParseSysConfigArg(int argc, char** argv);
 
 
+namespace caffe {
+
 // setup sync workers 
 template <typename Dtype>
-void RunSyncWorkers(caffe::Solver<Dtype>* solver_template);
+void RunSyncWorkers(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver);
 
+}
 
 #endif // end of COMM_UTILS_HPP_

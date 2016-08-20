@@ -4,6 +4,7 @@
 #include "cluster/comm_utils.hpp"
 #include "cluster/timer.hpp"
 
+namespace caffe {
 
 template <typename Dtype>
 void AsyncCommunicator<Dtype>::Init(bool is_clique_root) {
@@ -87,3 +88,5 @@ void AsyncCommunicator<Dtype>::SendRecvLoop(int n_iter) {
 /* explicit instantiation */
 template class AsyncCommunicator<float>;
 template class AsyncCommunicator<double>;
+
+}
