@@ -160,13 +160,13 @@ void SyncCommunicator<float>::SyncGroup(bool do_broadcast) {
     InterMachineAllReduce();
 
   // broadcast within clique 
-  if (do_broadcast) {
+  if (do_broadcast)
     CliqueBroadcast();
-    // all reduce use the sum operator, we divide by the number of workers
-    float n_device_per_group = 1.0 / (nDevicePerProc * nProcPerMachine * nMachinePerGroup);
-    CUBLAS_CHECK(cublasSscal(cublas_handle_, gpu_buf_size_, 
-      &n_device_per_group, gpu_buf_, 1) );
-  }
+
+  // all reduce use the sum operator, we divide by the number of workers
+  float n_device_per_group = 1.0 / (nDevicePerProc * nProcPerMachine * nMachinePerGroup);
+  CUBLAS_CHECK(cublasSscal(cublas_handle_, gpu_buf_size_, 
+    &n_device_per_group, gpu_buf_, 1) );
 }
 
 
@@ -187,13 +187,13 @@ void SyncCommunicator<double>::SyncGroup(bool do_broadcast) {
     InterMachineAllReduce();
 
   // broadcast within clique 
-  if (do_broadcast) {
+  if (do_broadcast)
     CliqueBroadcast();
-    // all reduce use the sum operator, we divide by the number of workers
-    double n_device_per_group = 1.0 / (nDevicePerProc * nProcPerMachine * nMachinePerGroup);
-    CUBLAS_CHECK(cublasDscal(cublas_handle_, gpu_buf_size_, 
-      &n_device_per_group, gpu_buf_, 1) );
-  }
+    
+  // all reduce use the sum operator, we divide by the number of workers
+  double n_device_per_group = 1.0 / (nDevicePerProc * nProcPerMachine * nMachinePerGroup);
+  CUBLAS_CHECK(cublasDscal(cublas_handle_, gpu_buf_size_, 
+    &n_device_per_group, gpu_buf_, 1) );
 }
 
 

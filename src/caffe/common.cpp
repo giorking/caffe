@@ -51,9 +51,15 @@ void GlobalInit(int* pargc, char*** pargv) {
 
 #ifdef CPU_ONLY  // CPU-only Caffe.
 
+// Caffe::Caffe()
+//     : random_generator_(), mode_(Caffe::CPU),
+//       solver_count_(1), root_solver_(true) { }
+// Modified Jian
 Caffe::Caffe()
     : random_generator_(), mode_(Caffe::CPU),
-      solver_count_(1), root_solver_(true) { }
+      solver_count_(1), root_solver_(true),
+      root_solver_ptr_(NULL) { }
+
 
 Caffe::~Caffe() { }
 

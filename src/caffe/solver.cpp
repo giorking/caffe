@@ -29,6 +29,14 @@ template <typename Dtype>
 Solver<Dtype>::Solver(const SolverParameter& param, const Solver* root_solver)
     : net_(), callbacks_(), root_solver_(root_solver),
       requested_early_exit_(false) {
+
+  // Modified Jian
+  // we need to either pass in valid root_solver ptr or set it globally in Caffe instance
+  CHECK(Caffe::GetRootSolverPtr() || root_solver) 
+    << "Initilize base solver: must specify root_solver in one of the two ways" << std::endl;
+  if (root_solver == NULL) 
+    root_solver_ = (caffe::Solver<Dtype>*)Caffe::GetRootSolverPtr();
+
   Init(param);
 }
 
@@ -36,6 +44,13 @@ template <typename Dtype>
 Solver<Dtype>::Solver(const string& param_file, const Solver* root_solver)
     : net_(), callbacks_(), root_solver_(root_solver),
       requested_early_exit_(false) {
+
+  // Modified Jian
+  // we need to either pass in valid root_solver ptr or set it globally in Caffe instance
+  CHECK(Caffe::GetRootSolverPtr() || root_solver) 
+    << "Initilize base solver: must specify root_solver in one of the two ways" << std::endl;
+  if (root_solver == NULL) 
+    root_solver_ = (caffe::Solver<Dtype>*)Caffe::GetRootSolverPtr();
 
   SolverParameter param;
   ReadSolverParamsFromTextFileOrDie(param_file, &param);
@@ -52,12 +67,18 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
   param_ = param;
   CHECK_GE(param_.average_loss(), 1) << "average_loss should be non-negative.";
   CheckSnapshotWritePermissions();
+
+  // Modified Jian
   if (Caffe::root_solver() && param_.random_seed() >= 0) {
     Caffe::set_random_seed(param_.random_seed());
   }
+  // Caffe::set_random_seed(param_.random_seed());
 
   // Scaffolding code
   InitTrainNet();
+
+  // TODO Jian recover single test
+  // if (1) {
   if (Caffe::root_solver()) {
     InitTestNets();
     LOG(INFO) << "Solver scaffolding done.";
@@ -109,6 +130,7 @@ void Solver<Dtype>::InitTrainNet() {
   } else {
     net_.reset(new Net<Dtype>(net_param, root_solver_->net_.get()));
   }
+  // net_.reset(new Net<Dtype>(net_param) );
 }
 
 template <typename Dtype>
@@ -308,22 +330,17 @@ void Solver<Dtype>::PrepareStepLoop() {
 
 template <typename Dtype>
 Dtype Solver<Dtype>::SingleStep(){
-
-  // std::cout << "test iter " << iter_ << std::endl; 
-
-  // caffe::Caffe::set_mode(caffe::Caffe::GPU);
 // zero-init the params
   net_->ClearParamDiffs();
-  // if (param_.test_interval() && iter_ % param_.test_interval() == 0
-  //     && (iter_ > 0 || param_.test_initialization())
-  //     && Caffe::root_solver() ) {
-  //   TestAll();
-  // }
-  
-  //   for (int i = 0; i < callbacks_.size(); ++i) {
-  //     callbacks_[i]->on_start();
-  //   }
 
+  // Modified Jian 
+  if (param_.test_interval() && iter_ % param_.test_interval() == 0
+      && (iter_ > 0 || param_.test_initialization())
+      && Caffe::root_solver() ) {
+  // if (param_.test_interval() && iter_ % param_.test_interval() == 0
+  //     && (iter_ > 0 || param_.test_initialization() ) ) {
+    TestAll();
+  }
 
   const bool display = param_.display() && iter_ % param_.display() == 0;
   // net_->set_debug_info(display && param_.debug_info());
@@ -360,6 +377,7 @@ Dtype Solver<Dtype>::SingleStep(){
   }
   return loss;
 }
+
 
 
 template <typename Dtype>

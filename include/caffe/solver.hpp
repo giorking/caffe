@@ -132,7 +132,9 @@ class Solver {
 
   // The root solver that holds root nets (actually containing shared layers)
   // in data parallelism
-  const Solver* const root_solver_;
+  // const Solver* const root_solver_;
+  // Modified Jian
+  const Solver* root_solver_;
 
   // A function that can be set by a client of the Solver to provide indication
   // that it wants a snapshot saved and/or to exit early.

@@ -164,6 +164,14 @@ class Caffe {
   inline static bool root_solver() { return Get().root_solver_; }
   inline static void set_root_solver(bool val) { Get().root_solver_ = val; }
 
+  // Modified by Jian
+  inline static void SetRootSolverPtr(void* root_solver_ptr) { 
+    Get().root_solver_ptr_ = root_solver_ptr; 
+  }
+  inline static void* GetRootSolverPtr() {
+    return Get().root_solver_ptr_;
+  }
+
  protected:
 #ifndef CPU_ONLY
   cublasHandle_t cublas_handle_;
@@ -174,6 +182,9 @@ class Caffe {
   Brew mode_;
   int solver_count_;
   bool root_solver_;
+
+  // Modified by Jian
+  void* root_solver_ptr_;  
 
  private:
   // The private constructor to avoid duplicate instantiation.

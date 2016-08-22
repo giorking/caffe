@@ -31,6 +31,8 @@ void Worker<Dtype>::Init(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
 	Caffe::SetDevice(sync_comm_.config_.device_id_);
   Caffe::set_mode(Caffe::GPU);
   Caffe::set_solver_count(nDevicePerProc);
+  caffe::Solver<Dtype>* root_solver_ptr = root_solver.get();
+  caffe::Caffe::SetRootSolverPtr( (void*)root_solver_ptr);
   CUDA_CHECK(cudaSetDevice(sync_comm_.config_.device_id_) );
 
 
@@ -41,7 +43,6 @@ void Worker<Dtype>::Init(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
 	  SolverParameter param(root_solver->param() );
 		param.set_device_id(sync_comm_.config_.device_id_);
 		caffe::Caffe::set_root_solver(false);
-		// solver_ = new caffe::WorkerSolver<Dtype>(param, root_solver.get() );
 		solver_ = caffe::SolverRegistry<Dtype>::CreateSolver(param);
 		caffe::Caffe::set_root_solver(true);
 	}
@@ -59,14 +60,14 @@ void Worker<Dtype>::Init(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
 	CopySolverBuffer(blobs_src);
 	ReplaceSolverBuffer(blobs_dest);
 
-	// TODO Jian make this resume code work
-	// if resume from previous snapshot
-	if (FLAGS_snapshot.size()) {
-    LOG(INFO) << "Resuming from " << ::FLAGS_snapshot;
-    solver_->Restore(::FLAGS_snapshot.c_str());
-  } else if (::FLAGS_weights.size()) {
-    CopyPretrainLayers(::FLAGS_weights);
-  }
+	// // TODO Jian make this resume code work
+	// // if resume from previous snapshot
+	// if (FLAGS_snapshot.size()) {
+ //    LOG(INFO) << "Resuming from " << ::FLAGS_snapshot;
+ //    solver_->Restore(::FLAGS_snapshot.c_str());
+ //  } else if (::FLAGS_weights.size()) {
+ //    CopyPretrainLayers(::FLAGS_weights);
+ //  }
 
 	// init sync_comm and attach to diff_ buffer on GPU
 	sync_comm_.Init(buf_size_, diff_);	
@@ -260,6 +261,8 @@ void Worker<Dtype>::Run(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
 	Caffe::SetDevice(sync_comm_.config_.device_id_);
 	caffe::Caffe::set_mode(caffe::Caffe::GPU);
   Caffe::set_solver_count(nDevicePerProc);
+  caffe::Solver<Dtype>* root_solver_ptr = root_solver.get();
+  caffe::Caffe::SetRootSolverPtr( (void*)root_solver_ptr);
   CUDA_CHECK(cudaSetDevice(sync_comm_.config_.device_id_) );
 
 #ifdef DEBUG
