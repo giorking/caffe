@@ -55,6 +55,9 @@ class DataReader {
     void InternalThreadEntry();
     void read_one(db::Cursor* cursor, QueuePair* qp);
 
+    // Modified Jian
+    void JumpOne(db::Cursor* cursor);
+
     const LayerParameter param_;
     BlockingQueue<shared_ptr<QueuePair> > new_queue_pairs_;
 

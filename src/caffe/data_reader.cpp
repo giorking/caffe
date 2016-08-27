@@ -8,6 +8,11 @@
 #include "caffe/layers/data_layer.hpp"
 #include "caffe/proto/caffe.pb.h"
 
+// Modified by Jian
+#include "cluster/comm_utils.hpp"
+#include "cluster/timer.hpp"
+
+
 namespace caffe {
 
 using boost::weak_ptr;
@@ -58,7 +63,6 @@ DataReader::QueuePair::~QueuePair() {
   }
 }
 
-//
 
 DataReader::Body::Body(const LayerParameter& param)
     : param_(param),
@@ -69,6 +73,7 @@ DataReader::Body::Body(const LayerParameter& param)
 DataReader::Body::~Body() {
   StopInternalThread();
 }
+
 
 void DataReader::Body::InternalThreadEntry() {
   shared_ptr<db::DB> db(db::GetDB(param_.data_param().backend()));
@@ -102,6 +107,63 @@ void DataReader::Body::InternalThreadEntry() {
   }
 }
 
+
+// void DataReader::Body::InternalThreadEntry() {
+//   shared_ptr<db::DB> db(db::GetDB(param_.data_param().backend()));
+//   db->Open(param_.data_param().source(), db::READ);
+//   shared_ptr<db::Cursor> cursor(db->NewCursor());
+//   vector<shared_ptr<QueuePair> > qps;
+//   try {
+//     int solver_count = param_.phase() == TRAIN ? Caffe::solver_count() : 1;
+
+//     // Modified Jian
+//     int sub_batch_size = param_.data_param().batch_size();
+//     int jump_size = (nProcPerMachine * nMachinePerGroup - 1) * solver_count;
+//     if (sub_batch_size % solver_count != 0) {
+//       std::cout << "Batch can not be equally distributed on to cards" << std::endl;
+//       std::exit(1);
+//     }
+//     // seed to the start position for each node
+//     int mpi_rank;
+//     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+//     for (int i = 0; i < mpi_rank * solver_count; i++)
+//       JumpOne(cursor.get() );
+
+//     // To ensure deterministic runs, only start running once all solvers
+//     // are ready. But solvers need to peek on one item during initialization,
+//     // so read one item, then wait for the next solver.
+//     for (int i = 0; i < solver_count; ++i) {
+//       shared_ptr<QueuePair> qp(new_queue_pairs_.pop());
+//       read_one(cursor.get(), qp.get());
+//       qps.push_back(qp);
+//     }
+    
+//     // Main loop
+//     while (!must_stop()) {
+//       for (int i = 0; i < solver_count; i++)
+//         read_one(cursor.get(), qps[i].get() );
+//       for (int i = 0; i < jump_size; i++)
+//         JumpOne(cursor.get() );
+
+
+//       // for (int i = 0; i < sub_batch_size; i++)
+//       //   read_one(cursor.get(), qps[i % solver_count].get() );
+
+//       // for (int i = 0; i < jump_size; i++)
+//       //   JumpOne(cursor.get() );
+
+//       // Check no additional readers have been created. This can happen if
+//       // more than one net is trained at a time per process, whether single
+//       // or multi solver. It might also happen if two data layers have same
+//       // name and same source.
+//       CHECK_EQ(new_queue_pairs_.size(), 0);
+//     }
+//   } catch (boost::thread_interrupted&) {
+//     // Interrupted exception is expected on shutdown
+//   }
+// }
+
+
 void DataReader::Body::read_one(db::Cursor* cursor, QueuePair* qp) {
   Datum* datum = qp->free_.pop();
   // TODO deserialize in-place instead of copy?
@@ -115,5 +177,17 @@ void DataReader::Body::read_one(db::Cursor* cursor, QueuePair* qp) {
     cursor->SeekToFirst();
   }
 }
+
+
+void DataReader::Body::JumpOne(db::Cursor* cursor) {
+  // go to the next iter
+  cursor->Jump();
+  if (!cursor->valid()) {
+    DLOG(INFO) << "Restarting data prefetching from start.";
+    cursor->SeekToFirst();
+  }
+}
+
+
 
 }  // namespace caffe

@@ -22,6 +22,9 @@ class LevelDBCursor : public Cursor {
   virtual string value() { return iter_->value().ToString(); }
   virtual bool valid() { return iter_->Valid(); }
 
+  // Modified Jian
+  virtual void Jump() { std::cout << "LevelDB jump not implemented!" << std::endl; }
+
  private:
   leveldb::Iterator* iter_;
 };

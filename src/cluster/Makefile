@@ -69,6 +69,13 @@ ALLEXE += $(ASYNCWORKEREXE)
 ALLOBJ += $(ASYNCWORKEROBJ)
 
 
+TESTMPIEXE = test_mpi
+TESTMPISRC = timer.cpp test_collective_new.cpp
+TESTMPIOBJ = $(TESTMPISRC:%.cpp=%.o)
+ALLEXE += $(TESTMPIEXE)
+ALLOBJ += $(TESTMPIOBJ)
+
+
 %.o: %.cpp
 	@echo Compiling $<
 	$(NVCC) $(CFLAGS) $(INCFLAGS) $(LDFLAGS) -c $< -o $@
@@ -146,6 +153,11 @@ async_worker_server: $(ASYNCWORKEROBJ)
 	# mpirun --hostfile hosts.txt -np 4 ./$(ASYNCWORKEREXE) --n_device_per_proc 1 --n_machine_per_group 1 --n_proc_per_machine 2 | tee time_log.txt
 	# mpirun --hostfile hosts.txt -np 2 ./$(ASYNCWORKEREXE) --n_device_per_proc 2 --n_machine_per_group 1 --n_proc_per_machine 1
 
+test_mpi: $(TESTMPIOBJ)
+	$(MPICXX) $(CFLAGS) $(PTHREADFLAGS) $(TESTMPIOBJ) $(LDFLAGS) $(INCFLAGS) -o $(TESTMPIEXE)
+	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
+	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
+	mpirun --hostfile hosts.txt -np 2 ./$(TESTMPIEXE)
 
 
 clean:

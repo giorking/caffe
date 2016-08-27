@@ -69,10 +69,10 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
   CheckSnapshotWritePermissions();
 
   // Modified Jian
-  if (Caffe::root_solver() && param_.random_seed() >= 0) {
-    Caffe::set_random_seed(param_.random_seed());
-  }
-  // Caffe::set_random_seed(param_.random_seed());
+  // if (Caffe::root_solver() && param_.random_seed() >= 0) {
+  //   Caffe::set_random_seed(param_.random_seed());
+  // }
+  Caffe::set_random_seed(param_.random_seed());
 
   // Scaffolding code
   InitTrainNet();

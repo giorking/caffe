@@ -48,11 +48,10 @@ void Worker<Dtype>::Init(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
 	}
 	pthread_mutex_unlock(&globalInitMutex);
 
-
 	const std::vector<caffe::Blob<Dtype>*>& blobs_dest =
       solver_->net()->learnable_params();
   const std::vector<caffe::Blob<Dtype>*>& blobs_src =
-      solver_->net()->learnable_params();    
+      root_solver->net()->learnable_params();    
 	// // get model size from external blob list and update buf_size_
 	buf_size_ = GetModelSize(blobs_src);
 	CUDA_CHECK(cudaMalloc(&model_, sizeof(Dtype) * buf_size_) );
@@ -147,10 +146,6 @@ int64_t Worker<Dtype>::GetModelSize(const std::vector<caffe::Blob<Dtype>*>& blob
 template <typename Dtype>
 void Worker<Dtype>::SyncComputeLoop() {
 
-#ifdef DEBUG
-	std::cout << "check error " << std::endl;
-#endif
-
 	caffe::Caffe::SetDevice(sync_comm_.config_.device_id_);
 	caffe::Caffe::set_mode(caffe::Caffe::GPU);
   caffe::Caffe::set_solver_count(nDevicePerProc);
@@ -185,7 +180,7 @@ void Worker<Dtype>::SyncComputeLoop() {
 		 * do intra-group synchronization, the un-divided data is 
 		 * in sync_comm_.gpu_buf_. solver.diff_ is hooked onto this buffer.
 		 */
-		// sync_comm_.SyncGroup(true);
+		sync_comm_.SyncGroup(true);
 		
 		// solver combines the diff and model
 		// solver_->UpdateModelFromDiff();

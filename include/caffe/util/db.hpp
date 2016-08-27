@@ -20,6 +20,9 @@ class Cursor {
   virtual string value() = 0;
   virtual bool valid() = 0;
 
+  // Modified Jian
+  virtual void Jump() = 0;
+
   DISABLE_COPY_AND_ASSIGN(Cursor);
 };
 

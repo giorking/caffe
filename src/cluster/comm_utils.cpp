@@ -78,22 +78,12 @@ namespace caffe {
 
 
 template <typename Dtype>
-// void RunSyncWorkers(const caffe::SolverParameter& solver_param) {
 void RunSyncWorkers(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
-	// int requested_thread_level = MPI_THREAD_SINGLE;
-	// int provided_thread_level;
-	// MPI_Init_thread(NULL, NULL, requested_thread_level, &provided_thread_level);
-	// if (provided_thread_level != requested_thread_level) {
-	// 	std::cout << "MPI multiple thread support is not provided!" << std::endl;
-	// 	exit(1);
-	// }
-
 	int mpi_rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 	int mpi_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-	
 	std::vector<int> gpu_ids;
 	GetGpuIds(gpu_ids);
 
@@ -101,15 +91,15 @@ void RunSyncWorkers(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
 	nProcPerGroup = nProcPerMachine * nMachinePerGroup;
 	if (gpu_ids.size() != nProcPerMachine * nDevicePerProc) {
 		std::cout << "Not enough GPU on a machine!" << std::endl;
-		std::exit(1);
+		// std::exit(1);
 	}
 	if (mpi_size % nProcPerMachine) {
 		std::cout << "Processes can not be equaly distributed to machines!" << std::endl;
-		std::exit(1);
+		// std::exit(1);
 	}
 	if (mpi_size / nProcPerGroup != 1) {
 		std::cout << "Need a single group to run sync worker!" << std::endl;
-		std::exit(1);
+		// std::exit(1);
 	}
 
 	std::vector<Worker<Dtype>* > workers(nDevicePerProc, NULL);
@@ -136,7 +126,6 @@ void RunSyncWorkers(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
 	// start spawn process and compute
 	std::vector<std::thread*> worker_threads;
 
-
 	for (int i = 0; i < nDevicePerProc; i++) {
 		std::thread* worker_thread = new std::thread(&Worker<Dtype>::Run, workers[i], root_solver);
 		worker_threads.push_back(worker_thread);
@@ -152,8 +141,6 @@ void RunSyncWorkers(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
 		pthread_barrier_destroy(process_barrier);
 		process_barrier = NULL;
 	}
-
-	// MPI_Finalize();
 }
 
 

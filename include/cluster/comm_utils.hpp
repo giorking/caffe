@@ -120,6 +120,10 @@ namespace caffe {
 template <typename Dtype>
 void RunSyncWorkers(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver);
 
+// // setup async workers
+// template <typename Dtype>
+
+
 }
 
 #endif // end of COMM_UTILS_HPP_
