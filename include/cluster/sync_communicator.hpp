@@ -8,7 +8,7 @@
 #include <cassert>
 #include "nccl/src/nccl.h"
 #include "cluster/comm_utils.hpp"
-#include "caffe/util/device_alternate.hpp"
+// #include "caffe/util/device_alternate.hpp"
 
 
 namespace caffe {
@@ -66,6 +66,7 @@ public:
   /* access function*/
   // inline int64_t GetGpuBufferSize() { return gpu_buf_size_; }
   inline int GetDeviceId() { return device_id_; }
+  inline bool IsCliqueRoot() { return is_clique_root_; }
   // inline int GetMachineId() { return machine_id_; }
 private:
 
@@ -99,7 +100,28 @@ friend class Worker<Dtype>;
 }; 
 
 
-/*base communicator class*/
+/**
+ * base communicator class.
+ * 1. If we want to directly perform MPI operation on specific 
+ * buffers, the external buffer should be given to gpu_buf_
+ * if we use GPU direct MPI and we do not need cpu_buf_. 
+ * Otherwise, the external buffer should be given as cpu_buf_.
+ * Make sure the cpu_buf_ is attached to a communicator whose
+ * this->IsCliqueRoot() == true.
+ * 
+ * 2. For MPI all reduce the required tmp_buf_size is 
+ * block_size * (n_proc / 2 - 1) + buf_size - (n_proc - 1) * block_size
+ * with block_size = buf_size / n_proc. It is enough for the halving and
+ * doubleing algorithm for reduce scatter, all gather and all reduce.
+ *
+ * 3. If we want to first do clique reduce and clique broadcast over
+ * multiple gpus on the same machine first, give the gpu buf to gpu_buf_.
+ * When not using GPU direct MPI, cpu_buf_ should be set for the clique
+ * root gpu so that data can be accessed via MPI. 
+ * Other cards do not need cpu_buf_. Otherwise, no cpu_buf_ is needed.
+ * Note if multiple gpus(equivalently multiple threads) are involved,
+ * We need to give process_barrier when we instantiate communicator.
+ */
 template<typename Dtype>
 class SyncCommunicator {
 public:
@@ -110,19 +132,27 @@ public:
     mpi_sync_comm_(NULL),
     gpu_buf_(NULL),
     gpu_buf_size_(0),
-    mpi_sync_buf_(NULL),
-    mpi_sync_buf_size_(0),
+    gpu_buf_tmp_(NULL),
+    gpu_buf_tmp_size_(0),
+    cpu_buf_(NULL),
+    cpu_buf_size_(0),
+    cpu_buf_tmp_(NULL),
+    cpu_buf_tmp_size_(0),
     process_barrier_(NULL) {}
   SyncCommunicator(const SyncCommConfig<Dtype>& config, 
-    pthread_barrier_t* process_barrier) : 
+    pthread_barrier_t* process_barrier = NULL) : 
     config_(config),
     nccl_comm_(NULL),
     stream_comm_(NULL),
     mpi_sync_comm_(NULL),
     gpu_buf_(NULL),
     gpu_buf_size_(0),
-    mpi_sync_buf_(NULL),
-    mpi_sync_buf_size_(0),
+    gpu_buf_tmp_(NULL),
+    gpu_buf_tmp_size_(0),
+    cpu_buf_(NULL),
+    cpu_buf_size_(0),
+    cpu_buf_tmp_(NULL),
+    cpu_buf_tmp_size_(0),
     process_barrier_(process_barrier) {}
   // we use default assignment communicator
   SyncCommunicator(const SyncCommunicator<Dtype>& comm) :
@@ -130,9 +160,15 @@ public:
   ~SyncCommunicator() {
     // if (gpu_buf_ != NULL)
     //   CUDA_CHECK(cudaFree(gpu_buf_) );
+    // we only allow external buf to be hooked onto gpu/cpu_buf
     gpu_buf_ = NULL;
-    if (mpi_sync_buf_ != NULL)
-      CUDA_CHECK(cudaFreeHost(mpi_sync_buf_) );
+    cpu_buf_ = NULL;
+    if (gpu_buf_tmp_ != NULL)
+      CUDA_CHECK(cudaFree(gpu_buf_tmp_) );
+    if (cpu_buf_tmp_ != NULL)
+      free(cpu_buf_tmp_);
+    // if (cpu_buf_ != NULL)
+    //   CUDA_CHECK(cudaFreeHost(cpu_buf_) );
     if (nccl_comm_ != NULL) {
       ncclCommDestroy(*nccl_comm_);
       nccl_comm_ = NULL;
@@ -144,8 +180,16 @@ public:
     CUBLAS_CHECK(cublasDestroy(cublas_handle_) );
   }
 
-
-  void Init(int64_t buf_size, Dtype* external_gpu_buf);
+  /**
+   * external_buf must be gpu memory if GPU_DIRECT_MPI
+   * it must be cpu memory if GPU_DIRECT_MPI is not
+   * defined in cluster/comm_utils.hpp. The same for external_buf_tmp.
+   * if using GPU Direct MPI, external_cpu_buf should be NULL; otherwise
+   * it should be allocated outside and given here.
+   * external_gpu_buf is necessary for CliqueReduce and CliqueBroadcast
+   */
+  void Init(int64_t buf_size, Dtype* external_cpu_buf, 
+    Dtype* external_gpu_buf, int64_t tmp_buf_size);
   /**
   * Building blocks for different synchronization setting
   * Group may include gpus on multiple nodes. We call the 
@@ -153,14 +197,21 @@ public:
   */
   virtual void CliqueReduce();
   virtual void CliqueBroadcast();
+  /**
+   * the reduce scatter and all gather are designed for large blocks.
+   * They use recursive doubling/halving algorithm. 
+   */
   virtual void InterMachineAllReduce();
+  virtual void InterMachineReduceScatter();
+  virtual void InterMachineAllGather();
   virtual void SyncGroup(bool do_broadcast);
   
   void ProcessBarrierWait() { pthread_barrier_wait(process_barrier_); };
   /* access function */
   inline Dtype* GetGpuBuffer() { return gpu_buf_; }
-  inline Dtype* GetMpiSyncBuffer() { return mpi_sync_buf_; }
-  inline int64_t GetMpiSyncBufferSize() { return mpi_sync_buf_size_; }
+  inline Dtype* GetCpuBuffer() { return cpu_buf_; }
+  inline Dtype* GetMpiSyncBuffer() { return cpu_buf_; }
+  inline int64_t GetMpiSyncBufferSize() { return cpu_buf_size_; }
   inline bool IsCliqueRoot() { return config_.is_clique_root_; }
   
 private:  
@@ -179,10 +230,18 @@ private:
   // buffer for intra-node gpu communication. We only attach gpu memory, never allocate here
   Dtype* gpu_buf_;
   int64_t gpu_buf_size_;
+  // temporary cpu memory for communication purpose, utilized when GPU_DIRECT_MPI in comm_utils.hpp
+  // it is initialized in Init function with given tmp buffer size.
+  Dtype* gpu_buf_tmp_;
+  int64_t gpu_buf_tmp_size_;
 
   // inter-node intra-group communication using mpi 
-  Dtype* mpi_sync_buf_;
-  int64_t mpi_sync_buf_size_;
+  Dtype* cpu_buf_;
+  int64_t cpu_buf_size_;
+  // temporary cpu memory for communication purpose, utilized when not GPU_DIRECT_MPI in comm_utils.hpp
+  // it is initialized in Init function with given tmp buffer size.
+  Dtype* cpu_buf_tmp_;
+  int64_t cpu_buf_tmp_size_;
 
   /**
    * copy barrier from external code, regularize behavior of workers

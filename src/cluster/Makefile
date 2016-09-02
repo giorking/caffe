@@ -31,7 +31,7 @@ ALLOBJ += $(NCCLOBJ)
 
 # sync communication test
 SYNCCOMMEXE = test_sync_comm
-SYNCCOMMSRC = test_sync_comm.cpp sync_communicator.cpp debug_utils.cpp
+SYNCCOMMSRC = test_sync_comm.cpp sync_communicator.cpp comm_utils.cpp
 SYNCCOMMObJ = $(SYNCCOMMSRC:%.cpp=%.o)
 ALLEXE += $(SYNCCOMMEXE)
 ALLOBJ += $(SYNCCOMMOBJ)
@@ -93,9 +93,9 @@ nccl: $(NCCLOBJ)
 
 
 sync_comm: $(SYNCCOMMOBJ)
-	$(MPICXX) $(CFLAGS) $(SYNCCOMMSRC) $(LDFLAGS) $(INCFLAGS) -o $(SYNCCOMMEXE)
-	scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
-	scp ./* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
+	$(MPICXX) $(CFLAGS) $(SYNCCOMMSRC) $(PTHREADFLAGS) $(LDFLAGS) $(INCFLAGS) -o $(SYNCCOMMEXE)
+	#scp ../../include/cluster/* zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster 
+	scp ./$(SYNCCOMMEXE) zjian@192.168.0.245:/home/zjian/Code/novu_caffe_v2/caffe/src/cluster
 	mpirun --hostfile hosts.txt -np 2 ./$(SYNCCOMMEXE)
 
 

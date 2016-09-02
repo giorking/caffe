@@ -26,11 +26,17 @@
 // #include <gflags/gflags.h>
 #include "nccl/src/nccl.h"
 
-#include "caffe/solver.hpp"
+// #include "caffe/solver.hpp"
 
 
 // #ifndef HIDE_DATA_FEED
 // #define HIDE_DATA_FEED
+// #endif
+
+
+// set if MPI allow gpu memory direct access
+// #ifndef GPU_DIRECT_MPI
+// #define GPU_DIRECT_MPI
 // #endif
 
 
@@ -51,11 +57,13 @@ DECLARE_string(weights);
   } while (0)
 
 
+const char* cublasGetErrorString(cublasStatus_t status);
+
 #define CUBLAS_CHECK(condition) \
   do { \
     cublasStatus_t status = condition; \
     CHECK_EQ(status, CUBLAS_STATUS_SUCCESS) << " " \
-   		<< caffe::cublasGetErrorString(status); \
+   		<< cublasGetErrorString(status); \
   } while (0)
 
 
@@ -114,16 +122,39 @@ void GetGpuIds(std::vector<int>& gpu_ids);
 void ParseSysConfigArg(int argc, char** argv);
 
 
-namespace caffe {
+// namespace caffe {
 
-// setup sync workers 
-template <typename Dtype>
-void RunSyncWorkers(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver);
-
-// // setup async workers
+// // setup sync workers 
 // template <typename Dtype>
+// void RunSyncWorkers(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver);
+
+// // // setup async workers
+// // template <typename Dtype>
 
 
+// }
+
+// y = y +  a * x 
+inline cublasStatus_t cublasAxpy(cublasHandle_t handle, int n, 
+  const float a, const float* x, float* y) {
+  return cublasSaxpy(handle, n, &a, x, 1, y, 1);
 }
+
+inline cublasStatus_t cublasAxpy(cublasHandle_t handle, int n, 
+  const double a, const double* x, double* y) {
+  return cublasDaxpy(handle, n, &a, x, 1, y, 1);
+}
+
+// y = y * a
+inline cublasStatus_t cublasScal(cublasHandle_t handle, int n,
+  const float* a, float* x) {
+  return cublasSscal(handle, n, a, x, 1);
+}
+
+inline cublasStatus_t cublasScal(cublasHandle_t handle, int n,
+  const double* a, double* x) {
+  return cublasDscal(handle, n, a, x, 1);
+}
+
 
 #endif // end of COMM_UTILS_HPP_
