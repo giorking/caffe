@@ -23,7 +23,7 @@
 #include <cublas_v2.h>
 // for definition of CHECK_EQ
 #include <glog/logging.h>
-// #include <gflags/gflags.h>
+#include <gflags/gflags.h>
 #include "nccl/src/nccl.h"
 
 // #include "caffe/solver.hpp"

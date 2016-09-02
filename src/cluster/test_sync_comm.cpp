@@ -30,12 +30,9 @@ void GetConfigForClique(vector<SyncCommConfig<Dtype> >& configs, vector<int>& gp
 
 template<typename Dtype>
 void MPIAllReduceThread(SyncCommConfig<Dtype>& config, Dtype buf_val, 
-	vector<Dtype>& rand_val, int machine_id, int n_thread, int64_t buf_size) {
-  vector<int> gpu_ids;
-  GetGpuIds(gpu_ids);
-  pthread_barrier_t process_barrier;
-  pthread_barrier_init(&process_barrier, NULL, gpu_ids.size() );
-  SyncCommunicator<Dtype> comm(config, &process_barrier); 
+	vector<Dtype>& rand_val, int machine_id, int n_thread, 
+	int64_t buf_size, pthread_barrier_t* process_barrier) {
+  SyncCommunicator<Dtype> comm(config, process_barrier); 
 
   Dtype* external_gpu_buf = NULL;
   Dtype* external_cpu_buf = NULL;
@@ -124,11 +121,15 @@ void TestMPIAllReduce(int argc, char** argv) {
 	vector<SyncCommConfig<Dtype> > configs;
 	GetConfigForClique(configs, gpu_ids);
 
+  pthread_barrier_t process_barrier;
+  pthread_barrier_init(&process_barrier, NULL, gpu_ids.size() );
+
 	vector<std::thread> threads;
 	for (int i = 0; i < configs.size(); i++) 
 		// MPIAllReduceThread<Dtype>(configs[i], rand_value[rank], rand_value, rank, gpu_ids.size() );
 		threads.push_back(std::thread(MPIAllReduceThread<Dtype>, std::ref(configs[i] ), 
-			rand_value[rank], std::ref(rand_value), rank, gpu_ids.size(), 20000000) );
+			rand_value[rank], std::ref(rand_value), rank, gpu_ids.size(), 20000000, 
+			&process_barrier) );
 
 	for (int i = 0; i < gpu_ids.size(); i++)
     threads[i].join();
@@ -346,21 +347,21 @@ void TestMPIReduceScatter(int argc, char** argv, Dtype tolerance) {
 int main(int argc, char** argv) {
 	MPI_Init(&argc, &argv);
 
-	// for (int i = 0; i < 20; i++) {
-	// 	caffe::TestMPIAllGather<float>(argc, argv);
-	// 	caffe::TestMPIAllGather<double>(argc, argv);
-	// }
+	for (int i = 0; i < 20; i++) {
+		caffe::TestMPIAllGather<float>(argc, argv);
+		caffe::TestMPIAllGather<double>(argc, argv);
+	}
 
-	// for (int i = 0; i < 20; i++) {
-	// 	caffe::TestMPIReduceScatter<float>(argc, argv, 1e-6);
-	// 	caffe::TestMPIReduceScatter<double>(argc, argv, 1e-8);
-	// }
+	for (int i = 0; i < 20; i++) {
+		caffe::TestMPIReduceScatter<float>(argc, argv, 1e-6);
+		caffe::TestMPIReduceScatter<double>(argc, argv, 1e-8);
+	}
 
 	for (int i = 0; i < 20; i++) {
 		caffe::TestMPIAllReduce<float>(argc, argv);
 		caffe::TestMPIAllReduce<double>(argc, argv);	 
 	}
-	
+
 	MPI_Finalize();
 
 	return 0;
