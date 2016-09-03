@@ -208,7 +208,8 @@ void SyncCommunicator<Dtype>::InterMachineReduceScatter() {
     }
 
 #ifdef GPU_DIRECT_MPI
-    cublasAxpy(cublas_handle_, recv_buf_size, 1.0, tmp_buf, buffer + recv_start_block * block_size);
+    Dtype factor = 1.0;
+    cublasAxpy(cublas_handle_, recv_buf_size, &factor, tmp_buf, buffer + recv_start_block * block_size);
 #else
     Dtype* recv_buf = buffer + recv_start_block * block_size;
     for (int i = 0; i < recv_buf_size; i++)
@@ -217,10 +218,10 @@ void SyncCommunicator<Dtype>::InterMachineReduceScatter() {
     interval /= 2;
   }
 #ifdef GPU_DIRECT_MPI  
-      // we need to guarantee the the stream work is done before next transimission
-      cudaStream_t cublas_stream;
-      cublasGetStream(cublas_handle_, &cublas_stream);
-      cudaStreamSynchronize(cublas_stream);
+  // we need to guarantee the the stream work is done before next transimission
+  cudaStream_t cublas_stream;
+  cublasGetStream(cublas_handle_, &cublas_stream);
+  cudaStreamSynchronize(cublas_stream);
 #endif
 }
 
@@ -343,7 +344,6 @@ void SyncCommunicator<Dtype>::InterMachineAllReduce() {
 #ifdef TIMER
   timer.stop();
   std::cout << "All gather in " << timer.getElapsedTimeInMilliSec() << std::endl;
-  std::cout << std::endl;
 #endif
 
 }

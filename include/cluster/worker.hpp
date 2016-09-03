@@ -101,11 +101,9 @@ protected:
 
 };
 
-
-
-// // TODO Jian remove these instantiation
-// template class Solver<float>;
-// template class Solver<double>;
+// setup sync workers 
+template <typename Dtype>
+void RunSyncWorkers(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver);
 
 }
 

@@ -204,7 +204,10 @@ void TestMPIAllGather(int argc, char** argv) {
 	SyncCommunicator<Dtype> comm(configs[0], NULL);
 
 #ifdef GPU_DIRECT_MPI
-	cudaSetDevice(0);
+	if (rank % 2 == 0)
+    cudaSetDevice(0);
+  else
+    cudaSetDevice(0);
 	Dtype* mpi_buf;
 	cudaMalloc(&mpi_buf, sizeof(Dtype) * buf_size);
 	cudaMemcpy(mpi_buf, &(copy_value[0] ), 
@@ -223,9 +226,9 @@ void TestMPIAllGather(int argc, char** argv) {
 #endif
 
 	for (int i = 0; i < buf_size; i++) {
-		if (mpi_buf[i] != rand_value[i] )
+		if (copy_value[i] != rand_value[i] )
 			std::cout << "wrong " << rank << " ind " << i << std::endl;	
-		assert(mpi_buf[i] == rand_value[i] );
+		assert(copy_value[i] == rand_value[i] );
 	}
 
 #ifdef GPU_DIRECT_MPI
@@ -299,7 +302,10 @@ void TestMPIReduceScatter(int argc, char** argv, Dtype tolerance) {
 	SyncCommunicator<Dtype> comm(configs[0], NULL);
 
 #ifdef GPU_DIRECT_MPI
-	cudaSetDevice(0);
+  if (rank % 2 == 0)
+  	cudaSetDevice(0);
+  else
+    cudaSetDevice(0);
 	Dtype* mpi_buf;
 	Dtype* mpi_buf_tmp;
 	cudaMalloc(&mpi_buf, sizeof(Dtype) * buf_size);
@@ -321,12 +327,12 @@ void TestMPIReduceScatter(int argc, char** argv, Dtype tolerance) {
 
 	int64_t tmp_buf_size = (rank == n_proc - 1) ? buf_size - block_size * rank : block_size; 
 	for (int i = block_size * rank; i < block_size * rank + tmp_buf_size; i++) {
-		if (std::abs( (mpi_buf[i] - rand_value[i] * (1 + n_proc) * n_proc / 2 ) / copy_value[i] ) > tolerance)
+		if (std::abs( (copy_value[i] - rand_value[i] * (1 + n_proc) * n_proc / 2 ) / copy_value[i] ) > tolerance)
 			std::cout << "wrong " << rank << " ind " << i 
-				<< " " << mpi_buf[i] << " " 
+				<< " " << copy_value[i] << " " 
 				<< rand_value[i] * (1 + n_proc) * n_proc / 2 
-				<< mpi_buf[i] - rand_value[i] * (1 + n_proc) * n_proc / 2 << std::endl;	
-		assert(std::abs( (mpi_buf[i] - rand_value[i] * (1 + n_proc) * n_proc / 2 ) / copy_value[i] ) <= tolerance);
+				<< copy_value[i] - rand_value[i] * (1 + n_proc) * n_proc / 2 << std::endl;	
+		assert(std::abs( (copy_value[i] - rand_value[i] * (1 + n_proc) * n_proc / 2 ) / copy_value[i] ) <= tolerance);
 	}
 
 #ifdef GPU_DIRECT_MPI
@@ -347,17 +353,17 @@ void TestMPIReduceScatter(int argc, char** argv, Dtype tolerance) {
 int main(int argc, char** argv) {
 	MPI_Init(&argc, &argv);
 
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < 2; i++) {
 		caffe::TestMPIAllGather<float>(argc, argv);
 		caffe::TestMPIAllGather<double>(argc, argv);
 	}
 
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < 2; i++) {
 		caffe::TestMPIReduceScatter<float>(argc, argv, 1e-6);
 		caffe::TestMPIReduceScatter<double>(argc, argv, 1e-8);
 	}
 
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < 2; i++) {
 		caffe::TestMPIAllReduce<float>(argc, argv);
 		caffe::TestMPIAllReduce<double>(argc, argv);	 
 	}

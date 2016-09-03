@@ -35,9 +35,9 @@
 
 
 // set if MPI allow gpu memory direct access
-// #ifndef GPU_DIRECT_MPI
-// #define GPU_DIRECT_MPI
-// #endif
+#ifndef GPU_DIRECT_MPI
+#define GPU_DIRECT_MPI
+#endif
 
 
 // related to gflags
@@ -122,27 +122,15 @@ void GetGpuIds(std::vector<int>& gpu_ids);
 void ParseSysConfigArg(int argc, char** argv);
 
 
-// namespace caffe {
-
-// // setup sync workers 
-// template <typename Dtype>
-// void RunSyncWorkers(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver);
-
-// // // setup async workers
-// // template <typename Dtype>
-
-
-// }
-
 // y = y +  a * x 
 inline cublasStatus_t cublasAxpy(cublasHandle_t handle, int n, 
-  const float a, const float* x, float* y) {
-  return cublasSaxpy(handle, n, &a, x, 1, y, 1);
+  const float *a, const float* x, float* y) {
+  return cublasSaxpy(handle, n, a, x, 1, y, 1);
 }
 
 inline cublasStatus_t cublasAxpy(cublasHandle_t handle, int n, 
-  const double a, const double* x, double* y) {
-  return cublasDaxpy(handle, n, &a, x, 1, y, 1);
+  const double* a, const double* x, double* y) {
+  return cublasDaxpy(handle, n, a, x, 1, y, 1);
 }
 
 // y = y * a
