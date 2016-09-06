@@ -109,7 +109,7 @@ void TestMPIAllReduce(int argc, char** argv) {
 			Dtype value = rand() / (Dtype)RAND_MAX;
 			rand_value[i] = value;
 		}
-		for (int i = 0; i < n_proc; i++)
+		for (int i = 1; i < n_proc; i++)
 			MPI_Send(&(rand_value[0] ), n_proc, type, i, 0, MPI_COMM_WORLD);	
 	}
 	else
