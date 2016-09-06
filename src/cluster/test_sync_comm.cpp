@@ -103,13 +103,14 @@ void TestMPIAllReduce(int argc, char** argv) {
 	vector<Dtype> rand_value(n_proc, 0.0);
 	MPI_Datatype type = DtypeToMPIDtype<Dtype>::type;
 	if (rank == 0) {
-		srand(100);
+		// srand(100);
+		srand(time(NULL) );
 		for (int i = 0; i < n_proc; i++) {
 			Dtype value = rand() / (Dtype)RAND_MAX;
 			rand_value[i] = value;
-			if (i != 0)
-				MPI_Send(&(rand_value[0] ), n_proc, type, i, 0, MPI_COMM_WORLD);	
 		}
+		for (int i = 0; i < n_proc; i++)
+			MPI_Send(&(rand_value[0] ), n_proc, type, i, 0, MPI_COMM_WORLD);	
 	}
 	else
 		MPI_Recv(&(rand_value[0] ), n_proc, type, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
