@@ -68,9 +68,18 @@ void Worker<Dtype>::Init(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
  //    CopyPretrainLayers(::FLAGS_weights);
  //  }
 
-	// init sync_comm and attach to diff_ buffer on GPU
-	sync_comm_.Init(buf_size_, diff_);	
-	pthread_barrier_init(&data_ready_, NULL, 2);
+	/**
+	 * init sync_comm and attach to diff_ buffer on GPU
+	 * tmp buffer will be utilized by allreduce consisting
+	 * of reduce scatter and all gather. 
+	*/
+	int mpi_size = 0;
+	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_size);
+	int64_t block_size = buf_size_ / mpi_size;
+	int64_t tmp_buf_size = 
+		block_size * (mpi_size / 2 - 1) + buf_size_ - (mpi_size - 1) * block_size;
+	sync_comm_.Init(buf_size_, NULL, diff_, tmp_buf_size);
+	// pthread_barrier_init(&data_ready_, NULL, 2);
 	// wait for initilization of other workers in the same process
 	pthread_barrier_wait(sync_comm_.process_barrier_);
 	// wait for MPI sync group to set up

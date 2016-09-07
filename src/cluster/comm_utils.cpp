@@ -23,7 +23,7 @@ int nDevicePerProc;
 pthread_mutex_t globalInitMutex;
 
 
-const char* cublasGetErrorString(cublasStatus_t status) {
+const char* cublasGetErrorString(cublasStatus_t status, int null) {
     switch(status) {
         case CUBLAS_STATUS_SUCCESS: return "CUBLAS_STATUS_SUCCESS";
         case CUBLAS_STATUS_NOT_INITIALIZED: return "CUBLAS_STATUS_NOT_INITIALIZED";

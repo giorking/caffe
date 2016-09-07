@@ -56,14 +56,14 @@ DECLARE_string(weights);
     CHECK_EQ(error, cudaSuccess) << " " << cudaGetErrorString(error); \
   } while (0)
 
-
-const char* cublasGetErrorString(cublasStatus_t status);
+// the null parameter is to avoid redefinition with caffe
+const char* cublasGetErrorString(cublasStatus_t status, int null);
 
 #define CUBLAS_CHECK(condition) \
   do { \
     cublasStatus_t status = condition; \
     CHECK_EQ(status, CUBLAS_STATUS_SUCCESS) << " " \
-   		<< cublasGetErrorString(status); \
+   		<< cublasGetErrorString(status, 0); \
   } while (0)
 
 

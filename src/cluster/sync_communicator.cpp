@@ -113,7 +113,7 @@ void SyncCommunicator<Dtype>::InterMachineReduceScatter() {
   int size;
   MPI_Comm_size(MPI_COMM_WORLD, &size);
   // test if the size is a power of 2
-  if (size & (size - 1) != 0) {
+  if ( (size & (size - 1) ) != 0) {
     std::cout << "Only support power-of-2 number of machines" << std::endl;
     std::exit(1);
   }
@@ -231,7 +231,7 @@ void SyncCommunicator<Dtype>::InterMachineAllGather() {
   int size;
   MPI_Comm_size(MPI_COMM_WORLD, &size);
   // test if the size is a power of 2
-  if (size & (size - 1) != 0) {
+  if ( (size & (size - 1) ) != 0) {
     std::cout << "Only support power-of-2 number of machines" << std::endl;
     std::exit(1);
   }
