@@ -67,14 +67,14 @@ void Worker<Dtype>::Init(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
  //  } else if (::FLAGS_weights.size()) {
  //    CopyPretrainLayers(::FLAGS_weights);
  //  }
-
+   
 	/**
 	 * init sync_comm and attach to diff_ buffer on GPU
 	 * tmp buffer will be utilized by allreduce consisting
 	 * of reduce scatter and all gather. 
 	*/
-	int mpi_size = 0;
-	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_size);
+	int mpi_size;
+	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 	int64_t block_size = buf_size_ / mpi_size;
 	int64_t tmp_buf_size = 
 		block_size * (mpi_size / 2 - 1) + buf_size_ - (mpi_size - 1) * block_size;
