@@ -56,7 +56,9 @@ class DataReader {
     void read_one(db::Cursor* cursor, QueuePair* qp);
 
     // Modified Jian
-    void JumpOne(db::Cursor* cursor);
+    // when we jump over the last item, we need to present 
+    // the item value for the following read_one operation.
+    void JumpOne(db::Cursor* cursor, bool read);
 
     const LayerParameter param_;
     BlockingQueue<shared_ptr<QueuePair> > new_queue_pairs_;

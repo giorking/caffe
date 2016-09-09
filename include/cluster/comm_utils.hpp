@@ -35,9 +35,9 @@
 
 
 // set if MPI allow gpu memory direct access
-#ifndef GPU_DIRECT_MPI
-#define GPU_DIRECT_MPI
-#endif
+//#ifndef GPU_DIRECT_MPI
+//#define GPU_DIRECT_MPI
+//#endif
 
 
 // related to gflags

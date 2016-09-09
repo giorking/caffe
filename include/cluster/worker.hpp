@@ -5,6 +5,7 @@
 #include "cluster/sync_communicator.hpp"
 #include "cluster/async_communicator.hpp"
 // #include "cluster/solver.hpp"
+#include "cluster/comm_utils.hpp"
 #include "caffe/caffe.hpp"
 
 namespace caffe {
@@ -39,6 +40,8 @@ namespace caffe {
 template <typename Dtype>
 class Worker {
 public:
+
+#ifdef GPU_DIRECT_MPI
 	Worker(const SyncCommConfig<Dtype>& sync_comm_config, 
 		pthread_barrier_t* process_barrier) : 
 		solver_(NULL), 
@@ -46,12 +49,28 @@ public:
 		model_(NULL),
 		diff_(NULL), 
 		buf_size_(0) {}
+#else
+	Worker(const SyncCommConfig<Dtype>& sync_comm_config, 
+		pthread_barrier_t* process_barrier) : 
+		solver_(NULL), 
+		sync_comm_(sync_comm_config, process_barrier),
+		model_(NULL),
+		diff_(NULL), 
+		buf_size_(0),
+		cpu_mpi_buf_(NULL) {}
+#endif
+
 	Worker(const Worker<Dtype>& worker) :
 		Worker<Dtype> (worker.sync_comm_.config_, 
 		worker.sync_comm_.process_barrier_) {}
 	virtual ~Worker() {
-		delete[] model_; 
-		delete[] diff_;
+		CUDA_CHECK(cudaFree(model_) ); 
+		CUDA_CHECK(cudaFree(diff_) );
+
+#ifndef GPU_DIRECT_MPI
+		delete[] cpu_mpi_buf_;		
+#endif
+
 		// if clique root the solver is attached and it is create from outside
 		if (sync_comm_.config_.clique_rank_ == 
 			sync_comm_.config_.clique_root_rank_ && solver_ != NULL)
@@ -98,6 +117,10 @@ protected:
 	Dtype* model_;
 	Dtype* diff_;
 	int64_t buf_size_;
+
+#ifndef GPU_DIRECT_MPI
+	Dtype* cpu_mpi_buf_;
+#endif
 
 };
 

@@ -352,9 +352,17 @@ Dtype Solver<Dtype>::SingleStep(){
   loss /= param_.iter_size();
   // average the loss across iterations for smoothed reporting
   UpdateSmoothedLoss(loss, start_iter_, average_loss_);
+  
+  // DEBUG
   if (display) {
-    LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
-        << ", loss = " << smoothed_loss_;
+    int device_id;
+    CUDA_CHECK(cudaGetDevice(&device_id) ); 
+    int MPI_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &MPI_rank);
+    LOG(INFO) << "mpi rank " << MPI_rank << " Dev id " << device_id << " Iteration " << iter_
+        << ", smoothed loss = " << smoothed_loss_ << " loss = " << loss;
+    // LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
+    //     << ", loss = " << smoothed_loss_;
     const vector<Blob<Dtype>*>& result = net_->output_blobs();
     int score_index = 0;
     for (int j = 0; j < result.size(); ++j) {

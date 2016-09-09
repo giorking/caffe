@@ -28,6 +28,30 @@ void Worker<Dtype>::Init(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
 // I0818 10:43:56.780596 23632 solver.cpp:250]     Train net output #0: loss = 0.0830779 (* 1 = 0.0830779 loss)
 // I0818 10:43:56.780602 23632 sgd_solver.cpp:106] Iteration 400, lr = 0.00971013
 
+
+// I0907 17:16:49.386611 15214 solver.cpp:548] Iteration 0, Testing net (#0)
+// I0907 17:16:49.409699 15214 solver.cpp:615]     Test net output #0: accuracy = 0.14
+// I0907 17:16:49.409731 15214 solver.cpp:615]     Test net output #1: loss = 2.29207 (* 1 = 2.29207 loss)
+// I0907 17:16:49.413383 15213 solver.cpp:360] Dev id 1 Iteration 0, smoothed loss = 2.40059 loss = 2.40059
+// I0907 17:16:49.413426 15213 solver.cpp:378]     Train net output #0: loss = 2.40059 (* 1 = 2.40059 loss)
+// I0907 17:16:49.418622 15214 solver.cpp:360] Dev id 0 Iteration 0, smoothed loss = 2.31549 loss = 2.31549
+// I0907 17:16:49.418648 15214 solver.cpp:378]     Train net output #0: loss = 2.31549 (* 1 = 2.31549 loss)
+// I0907 17:16:49.433734 15214 sgd_solver.cpp:106] Iteration 0, lr = 0.01
+// I0907 17:16:49.433748 15213 sgd_solver.cpp:106] Iteration 0, lr = 0.01
+// I0907 17:16:51.303478 15214 solver.cpp:360] Dev id 0 Iteration 100, smoothed loss = 0.388098 loss = 0.388098
+// I0907 17:16:51.303510 15214 solver.cpp:378]     Train net output #0: loss = 0.388098 (* 1 = 0.388098 loss)
+// I0907 17:16:51.303573 15213 solver.cpp:360] Dev id 1 Iteration 100, smoothed loss = 0.0576828 loss = 0.0576828
+// I0907 17:16:51.303604 15213 solver.cpp:378]     Train net output #0: loss = 0.0576828 (* 1 = 0.0576828 loss)
+// I0907 17:16:51.314801 15214 sgd_solver.cpp:106] Iteration 100, lr = 0.00992565
+// I0907 17:16:51.314833 15213 sgd_solver.cpp:106] Iteration 100, lr = 0.00992565
+// I0907 17:16:53.164932 15214 solver.cpp:360] Dev id 0 Iteration 200, smoothed loss = 0.273028 loss = 0.273028
+// I0907 17:16:53.164957 15214 solver.cpp:378]     Train net output #0: loss = 0.273028 (* 1 = 0.273028 loss)
+// I0907 17:16:53.165069 15213 solver.cpp:360] Dev id 1 Iteration 200, smoothed loss = 0.0311823 loss = 0.0311823
+// I0907 17:16:53.165112 15213 solver.cpp:378]     Train net output #0: loss = 0.0311823 (* 1 = 0.0311823 loss)
+// I0907 17:16:53.176656 15214 sgd_solver.cpp:106] Iteration 200, lr = 0.00985258
+// I0907 17:16:53.176693 15213 sgd_solver.cpp:106] Iteration 200, lr = 0.00985258
+
+
 	Caffe::SetDevice(sync_comm_.config_.device_id_);
   Caffe::set_mode(Caffe::GPU);
   Caffe::set_solver_count(nDevicePerProc);
@@ -76,9 +100,21 @@ void Worker<Dtype>::Init(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
 	int mpi_size;
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 	int64_t block_size = buf_size_ / mpi_size;
+	/**
+	 * tmp_buf_size is conceptually half of the buf_size for
+	 * reduceScatter+allGather Allreduce. To consider the size
+	 * of the last memory block (associated with the last node),
+	 * we use the following tmp_buf_size.
+	 */
 	int64_t tmp_buf_size = 
 		block_size * (mpi_size / 2 - 1) + buf_size_ - (mpi_size - 1) * block_size;
+	
+#ifdef GPU_DIRECT_MPI
 	sync_comm_.Init(buf_size_, NULL, diff_, tmp_buf_size);
+#else
+	cpu_mpi_buf_ = new Dtype[buf_size_];
+	sync_comm_.Init(buf_size_, cpu_mpi_buf_, diff_, tmp_buf_size);
+#endif
 	// pthread_barrier_init(&data_ready_, NULL, 2);
 	// wait for initilization of other workers in the same process
 	pthread_barrier_wait(sync_comm_.process_barrier_);
@@ -327,8 +363,8 @@ void RunSyncWorkers(caffe::shared_ptr<caffe::Solver<Dtype> > root_solver) {
 	
 
 	for (int i = 0; i < nDevicePerProc; i++) {
-		// TODO Jian: add solvers
-		int gpu_id = (mpi_rank % (gpu_ids.size() / nDevicePerProc) ) * nDevicePerProc + i;
+		// int gpu_id = (mpi_rank % (gpu_ids.size() / nDevicePerProc) ) * nDevicePerProc + i;
+		int gpu_id = i;
 		SyncCommConfig<Dtype> sync_config(gpu_id, clique_id);
 		workers[i] = new Worker<Dtype>(sync_config, process_barrier);
 	}
